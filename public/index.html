@@ -1,0 +1,1261 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Poêle</title>
+  <meta name="theme-color" content="#1a1512" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#fbf7f3" media="(prefers-color-scheme: light)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Poêle">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" href="icon-192.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <style>
+    :root {
+      --bg: #fbf7f3;
+      --card: #ffffff;
+      --text: #2a211b;
+      --muted: #8a7b70;
+      --line: #eadfd6;
+      --accent: #f26b1d;
+      --accent-soft: #fde6d6;
+      --on: #e8590c;
+      --cool: #3b82c4;
+      --cool-soft: #dbeaf7;
+      --danger: #c62828;
+      --ok: #2e9d58;
+      --shadow: 0 1px 2px rgba(60, 40, 20, .06), 0 4px 16px rgba(60, 40, 20, .06);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1a1512;
+        --card: #241d19;
+        --text: #f4ece6;
+        --muted: #a3958b;
+        --line: #3a2f28;
+        --accent: #ff8a3d;
+        --accent-soft: #4a2c1a;
+        --on: #ff7a2e;
+        --cool: #6cb0ea;
+        --cool-soft: #1d3346;
+        --danger: #ff6b6b;
+        --ok: #4cc47a;
+        --shadow: none;
+      }
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; background: var(--bg); color: var(--text); }
+    body {
+      font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      padding: max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+      max-width: 480px; margin: 0 auto; min-height: 100vh;
+    }
+    button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; }
+    button:disabled { opacity: .45; cursor: default; }
+    .hidden { display: none !important; }
+
+    header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    header h1 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+    .conn { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+    .dot.ok { background: var(--ok); }
+    .dot.ko { background: var(--danger); }
+
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 18px; margin-bottom: 12px; box-shadow: var(--shadow); }
+    .hero { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .room { font-size: 56px; font-weight: 650; letter-spacing: -.03em; line-height: 1; font-variant-numeric: tabular-nums; }
+    .room small { font-size: 24px; font-weight: 500; color: var(--muted); }
+    .label { font-size: 13px; color: var(--muted); margin-top: 6px; }
+    .pill { display: inline-block; padding: 5px 11px; border-radius: 999px; font-size: 14px; font-weight: 600; background: var(--line); color: var(--text); }
+    .pill.on { background: var(--accent-soft); color: var(--on); }
+    .pill.cool { background: var(--cool-soft); color: var(--cool); }
+    .pill.alarm { background: var(--danger); color: #fff; }
+
+    .power { width: 100%; padding: 18px; border-radius: 16px; font-size: 18px; font-weight: 650; display: flex; align-items: center; justify-content: center; gap: 10px; background: var(--accent); color: #fff; }
+    .power.off { background: var(--card); color: var(--text); border: 1px solid var(--line); }
+    .power svg { width: 22px; height: 22px; }
+
+    .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .row + .row { border-top: 1px solid var(--line); margin-top: 14px; padding-top: 14px; }
+    .row-title { font-weight: 600; }
+    .row-sub { font-size: 13px; color: var(--muted); }
+
+    .stepper { display: flex; align-items: center; gap: 4px; }
+    .stepper button { width: 46px; height: 46px; border-radius: 50%; background: var(--bg); border: 1px solid var(--line); font-size: 24px; line-height: 1; }
+    .stepper output { min-width: 84px; text-align: center; font-size: 24px; font-weight: 650; font-variant-numeric: tabular-nums; }
+
+    .seg { display: flex; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 3px; gap: 2px; }
+    .seg button { flex: 1; min-width: 38px; padding: 9px 8px; border-radius: 9px; font-weight: 600; font-size: 15px; color: var(--muted); }
+    .seg button[aria-pressed="true"] { background: var(--card); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+    .seg.wide { width: 100%; margin-top: 10px; }
+
+    .switch { position: relative; width: 52px; height: 32px; border-radius: 999px; background: var(--line); transition: background .15s; flex: none; }
+    .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 26px; height: 26px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .15s; }
+    .switch[aria-checked="true"] { background: var(--accent); }
+    .switch[aria-checked="true"]::after { transform: translateX(20px); }
+
+    /* Graphique des températures : couleurs validées (lisibles en daltonisme, contraste ≥ 3:1) */
+    /* Périodes de chauffe : ambre, assez marqué pour se détacher du fond sans couvrir les courbes */
+    :root { --series-in: #eb6834; --series-out: #2a78d6; --heat-band: rgba(237, 161, 0, 0.26); }
+    @media (prefers-color-scheme: dark) {
+      :root { --series-in: #d95926; --series-out: #3987e5; --heat-band: rgba(237, 161, 0, 0.30); }
+    }
+    .chart-mode { margin: 0 0 12px; }
+    .day-table tr.clickable { cursor: pointer; }
+    .day-table tr.clickable td:first-child { color: var(--accent); font-weight: 600; }
+    .week-nav { display: flex; align-items: center; gap: 8px; }
+    .week-label { flex: 1; text-align: center; font-weight: 600; }
+    .icon-btn.arrow { font-size: 24px; line-height: 1; padding-bottom: 3px; }
+    .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 12px 0 8px; font-size: 13px; color: var(--muted); }
+    .key { display: inline-flex; align-items: center; gap: 6px; }
+    .key-line { display: inline-block; width: 16px; border-top: 2px solid var(--series-in); }
+    .key-line.out { border-top: 2px dashed var(--series-out); }
+    .key-band { width: 12px; height: 12px; border-radius: 3px; background: var(--heat-band); }
+    .chart-wrap { position: relative; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+    #chart { display: block; width: 100%; height: 240px; }
+    #chart text { fill: var(--muted); font-size: 11px; font-family: inherit; }
+    .chart-tip { position: absolute; bottom: calc(100% + 4px); left: 0; pointer-events: none; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font-size: 13px; box-shadow: 0 4px 16px rgba(0, 0, 0, .18); white-space: nowrap; z-index: 2; }
+    .tip-time { color: var(--muted); margin-bottom: 4px; }
+    .tip-row { display: flex; align-items: center; gap: 8px; }
+    .tip-row strong { font-variant-numeric: tabular-nums; min-width: 42px; }
+    .tip-heat { color: var(--muted); margin-top: 4px; }
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+    .stat { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; box-shadow: var(--shadow); min-width: 0; }
+    .stat-label { font-size: 12px; color: var(--muted); }
+    .stat-value { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; margin-top: 2px; }
+    .stat-sub { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .loc-search { display: flex; gap: 8px; margin-top: 12px; }
+    .loc-search input { flex: 1; min-width: 0; font: inherit; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); color: var(--text); }
+    .loc-results { list-style: none; padding: 0; margin: 8px 0 0; }
+    .loc-results button { width: 100%; text-align: left; padding: 10px 0; border-top: 1px solid var(--line); }
+    .loc-results small { color: var(--muted); }
+    .day-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; font-variant-numeric: tabular-nums; }
+    .day-table th, .day-table td { padding: 6px 3px; text-align: right; border-top: 1px solid var(--line); }
+    .day-table th:first-child, .day-table td:first-child { text-align: left; white-space: nowrap; }
+    .day-table th { color: var(--muted); font-weight: 600; }
+    .attribution { text-align: center; margin: 2px 0 10px; }
+    .attribution a { color: inherit; }
+    .header-right { display: flex; align-items: center; gap: 10px; }
+    .icon-btn { width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); display: grid; place-items: center; }
+    .icon-btn svg { width: 20px; height: 20px; }
+    .subheader { display: flex; align-items: center; gap: 6px; margin-bottom: 14px; }
+    .subheader h2 { margin: 0; font-size: 20px; }
+    .back-btn { padding: 8px 8px 8px 0; font-weight: 600; font-size: 16px; color: var(--accent); }
+    .fold summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 14px; font-weight: 600; color: var(--muted); }
+    .fold summary::-webkit-details-marker { display: none; }
+    .fold summary::after { content: ""; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: translateY(-2px) rotate(45deg); transition: transform .15s; }
+    .fold[open] summary::after { transform: translateY(2px) rotate(-135deg); }
+    .fold > .row:first-of-type { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 12px; }
+    .note.tight { margin-top: 4px; }
+    .card > .note + .row { border-top: 1px solid var(--line); margin-top: 14px; padding-top: 14px; }
+    .slots { list-style: none; padding: 0; margin: 12px 0 0; }
+    .slot { border-top: 1px solid var(--line); }
+    .slot-head { width: 100%; display: flex; align-items: center; gap: 10px; padding: 12px 0; text-align: left; }
+    .slot-name { font-weight: 600; min-width: 82px; }
+    .slot-desc { flex: 1; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .slot-desc.set { color: var(--text); }
+    .slot-head::after { content: ""; flex: none; width: 7px; height: 7px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: translateY(-2px) rotate(45deg); transition: transform .15s; }
+    .slot.open .slot-head::after { transform: translateY(2px) rotate(-135deg); }
+    .slot-editor { padding: 0 0 14px; }
+    .slot-times { display: flex; align-items: center; gap: 10px; }
+    .slot-times span { color: var(--muted); }
+    .slot-times select { flex: 1; min-width: 0; font: inherit; font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; padding: 9px 10px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); color: var(--text); }
+    .days { display: flex; gap: 6px; margin-top: 12px; }
+    .days button { flex: 1; height: 40px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); font-weight: 600; color: var(--muted); }
+    .days button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .slot-actions { display: flex; gap: 10px; margin-top: 12px; }
+    .slot-actions button { flex: 1; padding: 11px 12px; }
+    .small-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .small-btn { flex: none; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); font-weight: 600; font-size: 14px; }
+    .clock-off { color: var(--danger); }
+    .timer-btn { margin-top: 14px; padding: 13px; font-size: 16px; }
+    .timer-active .row-sub { color: var(--on); font-weight: 600; }
+    .time { font: inherit; font-size: 20px; font-weight: 650; font-variant-numeric: tabular-nums; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); color: var(--text); }
+    .note { font-size: 13px; color: var(--muted); margin-top: 14px; }
+    .statuses summary { font-weight: 600; cursor: pointer; }
+    .statuses ul { list-style: none; padding: 0; margin: 12px 0 0; }
+    .statuses li { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; border-top: 1px solid var(--line); font-size: 14px; }
+    .statuses li span:first-child { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+    .login { margin-top: 12vh; text-align: center; }
+    .login h1 { margin: 12px 0 6px; font-size: 24px; }
+    .login p { color: var(--muted); margin: 0 0 22px; }
+    .login input { width: 100%; padding: 15px 16px; border-radius: 14px; border: 1px solid var(--line); background: var(--card); color: var(--text); font: inherit; font-size: 17px; margin-bottom: 12px; }
+    .login input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+    .login .power { margin-top: 4px; }
+    .login img { width: 72px; height: 72px; border-radius: 18px; }
+
+    .toast { position: fixed; left: 50%; bottom: max(20px, env(safe-area-inset-bottom)); transform: translateX(-50%); max-width: calc(100% - 32px); background: var(--text); color: var(--bg); padding: 12px 16px; border-radius: 12px; font-size: 15px; box-shadow: 0 6px 24px rgba(0,0,0,.25); z-index: 10; }
+    .toast.error { background: var(--danger); color: #fff; }
+
+    .offline-banner { background: var(--danger); color: #fff; border-radius: 14px; padding: 12px 14px; margin-bottom: 12px; font-size: 15px; }
+    .loading { text-align: center; color: var(--muted); margin-top: 30vh; }
+  </style>
+</head>
+<body>
+  <div id="loading" class="loading">Chargement…</div>
+
+  <!-- Écran du code d'accès -->
+  <form id="login" class="login hidden" autocomplete="on">
+    <img src="icon-192.png" alt="">
+    <h1>Poêle</h1>
+    <p>Entre ton code d'accès. Il sera retenu sur cet appareil.</p>
+    <input id="code" type="password" name="password" autocomplete="current-password" placeholder="Code d'accès" required>
+    <button class="power" type="submit">Entrer</button>
+  </form>
+
+  <!-- Écran principal -->
+  <main id="app" class="hidden">
+    <header>
+      <h1 id="name">Poêle</h1>
+      <div class="header-right">
+        <div class="conn"><span id="dot" class="dot"></span><span id="updated">—</span></div>
+        <button id="openTemps" class="icon-btn" type="button" aria-label="Suivi des températures">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 16l5-6 4 4 6-8 3 4"/><path d="M3 20h18"/></svg>
+        </button>
+        <button id="openMore" class="icon-btn" type="button" aria-label="Plus de réglages">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h9M19 6h1M4 12h3M13 12h7M4 18h11M21 18h-1"/><circle cx="16" cy="6" r="2.2"/><circle cx="10" cy="12" r="2.2"/><circle cx="18" cy="18" r="2.2"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <div id="offline" class="offline-banner hidden">Le poêle n'est pas connecté au cloud. Les commandes ne lui parviendront pas tant qu'il n'est pas reconnecté au Wi-Fi.</div>
+
+    <!-- Vue du quotidien -->
+    <div id="mainView">
+      <section class="card hero">
+        <div>
+          <div class="room"><span id="room">—</span><small>°C</small></div>
+          <div class="label">dans la pièce</div>
+        </div>
+        <span id="status" class="pill">—</span>
+      </section>
+
+      <section class="card">
+        <button id="powerBtn" class="power off" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/></svg>
+          <span id="powerLabel">—</span>
+        </button>
+      </section>
+
+      <section class="card">
+        <div class="row" style="display:block">
+          <div class="row-title">Ventilateur principal</div>
+          <div class="seg wide" id="fan1">
+            <button type="button" data-v="1">1</button>
+            <button type="button" data-v="2">2</button>
+            <button type="button" data-v="3">3</button>
+          </div>
+        </div>
+        <div class="row" style="display:block" id="fan2Row">
+          <div class="row-title">Ventilateur auxiliaire <span class="row-sub">· vers la chambre</span></div>
+          <div class="seg wide" id="fan2">
+            <button type="button" data-v="0">Arrêt</button>
+            <button type="button" data-v="1">1</button>
+            <button type="button" data-v="2">2</button>
+            <button type="button" data-v="3">3</button>
+          </div>
+        </div>
+        <div class="row" style="display:block">
+          <div class="row-title">Puissance <span class="row-sub" id="powerSub"></span></div>
+          <div class="seg wide" id="powerLevel">
+            <button type="button" data-v="1">1</button>
+            <button type="button" data-v="2">2</button>
+            <button type="button" data-v="3">3</button>
+            <button type="button" data-v="4">4</button>
+            <button type="button" data-v="5">5</button>
+          </div>
+        </div>
+        <div class="row" style="display:block">
+          <div class="row-title">Mode</div>
+          <div class="seg wide" id="mode">
+            <button type="button" data-v="manual">Manuel</button>
+            <button type="button" data-v="auto">Automatique</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" id="timerCard">
+        <div class="row">
+          <div><div class="row-title">Easy timer</div><div class="row-sub" id="timerSub">—</div></div>
+          <div class="stepper" id="timerStepper">
+            <button id="timerDown" type="button" aria-label="30 minutes de moins">−</button>
+            <output id="timerDur">1 h</output>
+            <button id="timerUp" type="button" aria-label="30 minutes de plus">+</button>
+          </div>
+        </div>
+        <button id="timerBtn" class="power off timer-btn" type="button">Démarrer</button>
+      </section>
+
+      <section class="card hidden" id="eveningCard">
+        <div class="row">
+          <div><div class="row-title">Auxiliaire le soir</div><div class="row-sub" id="eveInfo">—</div></div>
+          <button id="eveEnabled" class="switch" type="button" role="switch" aria-checked="false" aria-label="Auxiliaire le soir"></button>
+        </div>
+        <details class="fold">
+          <summary>Options</summary>
+          <div class="row">
+            <div class="row-title">À partir de</div>
+            <input id="eveTime" class="time" type="time" value="20:00" required>
+          </div>
+          <div class="row" style="display:block">
+            <div class="row-title">Vitesse</div>
+            <div class="seg wide" id="eveLevel">
+              <button type="button" data-v="1">1</button>
+              <button type="button" data-v="2">2</button>
+              <button type="button" data-v="3">3</button>
+            </div>
+          </div>
+          <div class="note">L'auxiliaire passe à cette vitesse une fois par soir, dès que le poêle est en marche, puis repasse à l'arrêt à l'extinction du poêle.</div>
+        </details>
+      </section>
+    </div>
+
+    <!-- Menu secondaire : réglages occasionnels -->
+    <div id="moreView" class="hidden">
+      <div class="subheader">
+        <button id="closeMore" class="back-btn" type="button">‹ Retour</button>
+        <h2>Plus de réglages</h2>
+      </div>
+
+      <section class="card">
+        <div class="row-title">Mode automatique</div>
+        <div class="note tight" id="autoNote"></div>
+        <div class="row">
+          <div><div class="row-title">Consigne</div><div class="row-sub" id="tempSub"></div></div>
+          <div class="stepper">
+            <button id="tempDown" type="button" aria-label="Baisser la consigne">−</button>
+            <output id="temp">—</output>
+            <button id="tempUp" type="button" aria-label="Monter la consigne">+</button>
+          </div>
+        </div>
+        <div class="row">
+          <div><div class="row-title">Veille automatique</div><div class="row-sub">S'éteint à la consigne, se rallume en dessous</div></div>
+          <button id="standby" class="switch" type="button" role="switch" aria-checked="false" aria-label="Veille automatique"></button>
+        </div>
+      </section>
+
+      <section class="card" id="schedCard">
+        <div class="row">
+          <div><div class="row-title">Programmation hebdomadaire</div><div class="row-sub" id="schedSub">—</div></div>
+          <button id="schedActive" class="switch" type="button" role="switch" aria-checked="false" aria-label="Programmation hebdomadaire"></button>
+        </div>
+        <ul class="slots" id="slotList"></ul>
+        <div class="note">Activée, elle allume le poêle au début de chaque tranche et l'éteint à la fin. En mode automatique il vise la consigne, en mode manuel il tourne à la puissance choisie.</div>
+      </section>
+
+      <section class="card">
+        <div class="row">
+          <div><div class="row-title">Mode relax</div><div class="row-sub">Sans ventilation, plus silencieux, puissance limitée</div></div>
+          <button id="relax" class="switch" type="button" role="switch" aria-checked="false" aria-label="Mode relax"></button>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="row">
+          <div><div class="row-title">Horloge du poêle</div><div class="row-sub" id="clockSub">—</div></div>
+          <button id="clockBtn" class="small-btn" type="button">Remettre à l'heure</button>
+        </div>
+      </section>
+
+      <details class="card statuses" id="statusesCard">
+        <summary>États rencontrés <span class="row-sub" id="stCount"></span></summary>
+        <ul id="stList"></ul>
+        <div class="note">Le poêle décrit son état en italien. Chaque nouvel état est retenu ici dès qu'il apparaît.</div>
+      </details>
+    </div>
+
+    <!-- Suivi des températures -->
+    <div id="tempView" class="hidden">
+      <div class="subheader">
+        <button id="closeTemps" class="back-btn" type="button">‹ Retour</button>
+        <h2>Températures</h2>
+      </div>
+
+      <section class="card">
+        <div class="seg wide chart-mode" id="chartMode">
+          <button type="button" data-v="week">Semaine</button>
+          <button type="button" data-v="day">Jour</button>
+        </div>
+        <div class="week-nav">
+          <button id="weekPrev" class="icon-btn arrow" type="button" aria-label="Période précédente">‹</button>
+          <div class="week-label" id="weekLabel">—</div>
+          <button id="weekNext" class="icon-btn arrow" type="button" aria-label="Période suivante">›</button>
+        </div>
+        <div class="legend">
+          <span class="key"><span class="key-line in"></span>Intérieur</span>
+          <span class="key" id="legendOut"><span class="key-line out"></span>Extérieur</span>
+          <span class="key"><span class="key-band"></span>Poêle en marche</span>
+        </div>
+        <div class="chart-wrap" id="chartWrap">
+          <svg id="chart" role="img" aria-label="Températures intérieure et extérieure de la semaine"></svg>
+          <div id="chartTip" class="chart-tip hidden" role="status"></div>
+        </div>
+        <div class="note tight" id="chartNote"></div>
+      </section>
+
+      <section class="stats">
+        <div class="stat"><div class="stat-label">Intérieur</div><div class="stat-value" id="stInAvg">—</div><div class="stat-sub" id="stInRange">moyenne</div></div>
+        <div class="stat"><div class="stat-label">Extérieur</div><div class="stat-value" id="stOutAvg">—</div><div class="stat-sub" id="stOutRange">moyenne</div></div>
+        <div class="stat"><div class="stat-label">Chauffe</div><div class="stat-value" id="stHeat">—</div><div class="stat-sub">en marche</div></div>
+      </section>
+
+      <section class="card">
+        <div class="row">
+          <div><div class="row-title">Température extérieure</div><div class="row-sub" id="locSub">—</div></div>
+          <button id="outdoorToggle" class="switch" type="button" role="switch" aria-checked="true" aria-label="Afficher la température extérieure"></button>
+        </div>
+        <details class="fold" id="locFold">
+          <summary>Choisir la commune</summary>
+          <form class="loc-search" id="locForm">
+            <input id="locInput" type="search" placeholder="Nom de ta commune" enterkeyhint="search" required>
+            <button class="small-btn primary" type="submit">Chercher</button>
+          </form>
+          <ul class="loc-results" id="locResults"></ul>
+        </details>
+      </section>
+
+      <details class="card statuses">
+        <summary id="tableTitle">Valeurs par jour</summary>
+        <table class="day-table" id="dayTable"></table>
+        <div class="note" id="tableNote"></div>
+      </details>
+
+      <div class="note attribution">Données météo : <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a> (CC BY 4.0)</div>
+    </div>
+  </main>
+
+  <div id="toast" class="toast hidden" role="status"></div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const LOCK_MS = 20000; // après une commande, on garde la valeur choisie le temps que le poêle la confirme
+    const locks = {};
+    let state = null;
+    let tempTimer = null;
+    let toastTimer = null;
+    let busy = false;
+
+    function toast(msg, isError) {
+      const t = $("toast");
+      t.textContent = msg;
+      t.className = "toast" + (isError ? " error" : "");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.classList.add("hidden"), isError ? 6000 : 2500);
+    }
+
+    function show(view) {
+      for (const v of ["loading", "login", "app"]) $(v).classList.toggle("hidden", v !== view);
+    }
+
+    async function api(path, body) {
+      const res = await fetch("/api/" + path, body === undefined ? { cache: "no-store" } : {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 401 && path !== "login") { show("login"); throw new Error("auth"); }
+      if (!res.ok) throw new Error(data.error || "Erreur " + res.status);
+      return data;
+    }
+
+    const fmtTemp = (v) => (typeof v === "number" ? v.toFixed(1).replace(".", ",") : "—");
+    const fmtSetpoint = (v) => (typeof v === "number" ? Math.round(v) + "°" : "—");
+    // Pendant ces phases, le bouton marche/arrêt est bloqué.
+    const TRANSITION_LABELS = { ignition: "Allumage en cours…", shutdown: "Extinction en cours…", cleaning: "Nettoyage en cours…" };
+    const PILL_CLASS = { alarm: " alarm", running: " on", ignition: " on", shutdown: " cool", cleaning: " cool" };
+    const locked = (field) => locks[field] && Date.now() < locks[field];
+
+    function ago(iso) {
+      if (!iso) return "—";
+      const s = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
+      if (s < 60) return "à l'instant";
+      if (s < 3600) return `il y a ${Math.round(s / 60)} min`;
+      return new Date(iso).toLocaleTimeString("fr-BE", { hour: "2-digit", minute: "2-digit" });
+    }
+
+    function render() {
+      if (!state) return;
+      const s = state;
+      $("dot").className = "dot " + (s.online ? "ok" : "ko");
+      $("updated").textContent = s.online ? ago(s.lastUpdate) : "hors ligne";
+      $("offline").classList.toggle("hidden", s.online !== false);
+      $("room").textContent = fmtTemp(s.roomTemperature);
+
+      const st = $("status");
+      st.textContent = s.statusFr || s.statusDescription || "—";
+      st.title = s.statusDescription ? `${s.statusDescription} (code ${s.status})` : "";
+      st.className = "pill" + (PILL_CLASS[s.phase] || "");
+
+      if (!locked("power")) {
+        const busyLabel = TRANSITION_LABELS[s.phase];
+        $("powerBtn").disabled = !!busyLabel;
+        $("powerBtn").dataset.next = s.isOn ? "off" : "on";
+        $("powerBtn").className = "power" + (s.isOn && !busyLabel ? "" : " off");
+        $("powerLabel").textContent = busyLabel || (s.isOn ? "Éteindre" : "Allumer");
+      }
+      if (!locked("timer")) renderTimer(s.easyTimerDate);
+      if (!locked("syncClock")) renderClock(s);
+      if (!locked("schedule")) renderSchedule(s);
+      if (!locked("temperature")) $("temp").textContent = fmtSetpoint(s.temperature);
+      if (!locked("mode")) for (const b of $("mode").children) b.setAttribute("aria-pressed", String(b.dataset.v === s.mode));
+      // Automatique : le poêle vise la consigne et choisit sa puissance. Manuel : on choisit la puissance.
+      const pressedMode = $("mode").querySelector('[aria-pressed="true"]');
+      const auto = (pressedMode ? pressedMode.dataset.v : s.mode) === "auto";
+      $("tempSub").textContent = auto ? "Le poêle adapte sa puissance pour l'atteindre" : "Température visée";
+      $("autoNote").textContent = auto
+        ? "Ton poêle est en mode automatique : ces réglages sont actifs."
+        : "Ton poêle est en mode manuel : ces réglages n'agiront qu'en mode automatique.";
+      $("powerSub").textContent = auto ? "· choisie par le poêle" : "· plus haut = plus de chaleur";
+      for (const b of $("powerLevel").children) {
+        b.disabled = auto;
+        if (!locked("powerLevel")) b.setAttribute("aria-pressed", String(Number(b.dataset.v) === s.power));
+      }
+      if (!locked("fan1")) for (const b of $("fan1").children) b.setAttribute("aria-pressed", String(Number(b.dataset.v) === s.fan1Power));
+      $("fan2Row").classList.toggle("hidden", !(s.fansNumber >= 2));
+      if (!locked("fan2")) for (const b of $("fan2").children) b.setAttribute("aria-pressed", String(Number(b.dataset.v) === s.fan2Power));
+      if (!locked("relax")) $("relax").setAttribute("aria-checked", String(!!s.relaxMode));
+      if (!locked("standby")) $("standby").setAttribute("aria-checked", String(!!s.standbyMode));
+    }
+
+    async function refresh(quiet) {
+      try {
+        state = await api("state");
+        show("app");
+        render();
+        if (!settings) loadSettings();
+      } catch (e) {
+        if (e.message !== "auth" && !quiet) toast(e.message, true);
+        if (e.message !== "auth" && !state) show("app");
+      }
+    }
+
+    async function command(action, value, field) {
+      locks[field] = Date.now() + LOCK_MS;
+      try {
+        await api("command", { action, value });
+        toast("Envoyé au poêle");
+        setTimeout(() => refresh(true), 4000);
+        setTimeout(() => refresh(true), 15000);
+      } catch (e) {
+        locks[field] = 0;
+        render();
+        refresh(true); // revenir à l'état réel du poêle (l'affichage avait anticipé la commande)
+        if (e.message !== "auth") toast(e.message, true);
+      }
+    }
+
+    // Allumer / éteindre, avec confirmation
+    $("powerBtn").addEventListener("click", () => {
+      if (!state || busy || $("powerBtn").disabled) return;
+      const turnOn = $("powerBtn").dataset.next === "on";
+      // En attendant que le poêle confirme, on affiche la transition et on bloque le bouton.
+      $("powerBtn").disabled = true;
+      $("powerBtn").className = "power off";
+      $("powerLabel").textContent = turnOn ? TRANSITION_LABELS.ignition : TRANSITION_LABELS.shutdown;
+      command("power", turnOn, "power");
+    });
+
+    // Consigne : on attend que l'utilisateur ait fini d'appuyer avant d'envoyer
+    function stepTemp(delta) {
+      if (!state) return;
+      const current = parseInt($("temp").textContent, 10);
+      const next = Math.min(35, Math.max(10, Math.round(isNaN(current) ? state.temperature : current) + delta));
+      $("temp").textContent = fmtSetpoint(next);
+      locks.temperature = Date.now() + LOCK_MS;
+      clearTimeout(tempTimer);
+      tempTimer = setTimeout(() => command("temperature", next, "temperature"), 1200);
+    }
+    $("tempDown").addEventListener("click", () => stepTemp(-1));
+    $("tempUp").addEventListener("click", () => stepTemp(1));
+
+    function segment(id, action, parse) {
+      $(id).addEventListener("click", (ev) => {
+        const b = ev.target.closest("button");
+        if (!b || !state) return;
+        for (const x of $(id).children) x.setAttribute("aria-pressed", String(x === b));
+        command(action, parse(b.dataset.v), action);
+      });
+    }
+    segment("mode", "mode", (v) => v);
+    segment("powerLevel", "powerLevel", (v) => Number(v));
+    // Changer de mode met à jour tout de suite les libellés consigne/puissance.
+    $("mode").addEventListener("click", () => setTimeout(render, 0));
+    segment("fan1", "fan1", (v) => Number(v));
+    segment("fan2", "fan2", (v) => Number(v));
+
+    for (const id of ["relax", "standby"]) {
+      $(id).addEventListener("click", () => {
+        if (!state) return;
+        const next = $(id).getAttribute("aria-checked") !== "true";
+        $(id).setAttribute("aria-checked", String(next));
+        command(id, next, id);
+      });
+    }
+
+
+    $("login").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const btn = ev.target.querySelector("button");
+      btn.disabled = true;
+      try {
+        await api("login", { code: $("code").value });
+        $("code").value = "";
+        await refresh(false);
+      } catch (e) {
+        toast(e.message, true);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    // --- Easy timer : inverse l'état du poêle après un délai (par demi-heures) ---
+    let timerMinutes = 60;
+    let timerDate = null; // date de déclenchement affichée (ISO) ou null
+    const fmtDuration = (min) => {
+      const h = Math.floor(min / 60), m = min % 60;
+      return h ? (m ? `${h} h ${m}` : `${h} h`) : `${m} min`;
+    };
+
+    function renderTimer(dateIso) {
+      const active = !!dateIso && new Date(dateIso).getTime() > Date.now();
+      timerDate = active ? dateIso : null;
+      // Allumé ou en cours d'allumage : le timer l'éteindra. Sinon, il l'allumera.
+      const willTurnOff = state ? state.isOn || state.phase === "ignition" : true;
+      // D'après le manuel, l'easy timer n'est possible que si la programmation hebdomadaire est désactivée.
+      const blocked = !active && !!(state && state.scheduling && state.scheduling.active);
+      $("timerCard").classList.toggle("timer-active", active);
+      $("timerStepper").classList.toggle("hidden", active || blocked);
+      $("timerDur").textContent = fmtDuration(timerMinutes);
+      $("timerBtn").disabled = blocked;
+      if (blocked) {
+        $("timerSub").textContent = "Indisponible : la programmation hebdomadaire est activée";
+        $("timerBtn").textContent = "Démarrer";
+      } else if (active) {
+        const left = Math.max(1, Math.round((new Date(dateIso).getTime() - Date.now()) / 60000));
+        $("timerSub").textContent = `${willTurnOff ? "Extinction" : "Allumage"} à ${hhmm(dateIso)} (dans ${fmtDuration(left)})`;
+        $("timerBtn").textContent = "Annuler le timer";
+      } else {
+        $("timerSub").textContent = willTurnOff ? "Éteindre le poêle dans :" : "Allumer le poêle dans :";
+        $("timerBtn").textContent = "Démarrer";
+      }
+    }
+
+    function stepTimer(delta) {
+      timerMinutes = Math.min(720, Math.max(30, timerMinutes + delta));
+      $("timerDur").textContent = fmtDuration(timerMinutes);
+    }
+    $("timerDown").addEventListener("click", () => stepTimer(-30));
+    $("timerUp").addEventListener("click", () => stepTimer(30));
+    $("timerBtn").addEventListener("click", () => {
+      if (!state || $("timerBtn").disabled) return;
+      if (timerDate) {
+        renderTimer(null);
+        command("timer", null, "timer");
+      } else {
+        renderTimer(new Date(Date.now() + timerMinutes * 60000).toISOString());
+        command("timer", timerMinutes, "timer");
+      }
+    });
+
+    // --- Programmation hebdomadaire ----------------------------------------------
+    // Tranches de 1 à 8 : heures en secondes depuis minuit (heure belge), par demi-heures.
+    const DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
+    const DAY_SHORT = { MON: "lun", TUE: "mar", WED: "mer", THU: "jeu", FRI: "ven", SAT: "sam", SUN: "dim" };
+    const DAY_LETTER = { MON: "L", TUE: "M", WED: "M", THU: "J", FRI: "V", SAT: "S", SUN: "D" };
+    const SLOTS = [1, 2, 3, 4, 5, 6, 7, 8];
+    let openSlot = null; // tranche en cours d'édition
+
+    const secToHHMM = (s) => `${String(Math.floor(s / 3600)).padStart(2, "0")}:${String((s % 3600) / 60).padStart(2, "0")}`;
+    const slotIsSet = (sl) => !!sl && Array.isArray(sl.days) && sl.days.length > 0 && sl.endTime > sl.startTime;
+    // Jours consécutifs regroupés (3 ou plus) : « lun–ven », « sam dim » ; les 7 jours : « tous les jours ».
+    function daysText(days) {
+      const idx = days.map((d) => DAYS.indexOf(d)).sort((a, b) => a - b);
+      if (idx.length === 7) return "tous les jours";
+      const parts = [];
+      for (let i = 0; i < idx.length; ) {
+        let j = i;
+        while (j + 1 < idx.length && idx[j + 1] === idx[j] + 1) j++;
+        if (j - i >= 2) parts.push(`${DAY_SHORT[DAYS[idx[i]]]}–${DAY_SHORT[DAYS[idx[j]]]}`);
+        else for (let k = i; k <= j; k++) parts.push(DAY_SHORT[DAYS[idx[k]]]);
+        i = j + 1;
+      }
+      return parts.join(" ");
+    }
+    const slotDesc = (sl) => slotIsSet(sl)
+      ? `${secToHHMM(sl.startTime)} → ${secToHHMM(sl.endTime)} · ${daysText(sl.days)}`
+      : "Vide";
+    const schedule = () => (state && state.scheduling) || {};
+
+    function el(tag, props = {}, children = []) {
+      const e = Object.assign(document.createElement(tag), props);
+      for (const c of [].concat(children)) e.append(c);
+      return e;
+    }
+
+    function timeSelect(from, to, selected) {
+      const sel = el("select");
+      for (let t = from; t <= to; t += 1800) sel.append(el("option", { value: String(t), textContent: secToHHMM(t), selected: t === selected }));
+      return sel;
+    }
+
+    function slotEditor(n, current) {
+      const base = slotIsSet(current) ? current : { startTime: 18 * 3600, endTime: 22 * 3600, days: [] };
+      const start = timeSelect(0, 86400 - 1800, base.startTime);
+      const end = timeSelect(1800, 86400, base.endTime);
+      start.setAttribute("aria-label", `Tranche ${n} : début`);
+      end.setAttribute("aria-label", `Tranche ${n} : fin`);
+      const days = el("div", { className: "days" }, DAYS.map((d) => {
+        const b = el("button", { type: "button", textContent: DAY_LETTER[d], title: DAY_SHORT[d] });
+        b.dataset.day = d;
+        b.setAttribute("aria-pressed", String(base.days.includes(d)));
+        b.addEventListener("click", () => b.setAttribute("aria-pressed", String(b.getAttribute("aria-pressed") !== "true")));
+        return b;
+      }));
+      const clear = el("button", { type: "button", className: "small-btn", textContent: "Effacer", disabled: !slotIsSet(current) });
+      const save = el("button", { type: "button", className: "small-btn primary", textContent: "Enregistrer" });
+
+      clear.addEventListener("click", () => saveSlot(n, { slot: n, clear: true }, { startTime: 0, endTime: 0, days: [] }));
+      save.addEventListener("click", () => {
+        const value = {
+          slot: n,
+          startTime: Number(start.value),
+          endTime: Number(end.value),
+          days: [...days.children].filter((b) => b.getAttribute("aria-pressed") === "true").map((b) => b.dataset.day),
+        };
+        if (value.endTime <= value.startTime) return toast("L'heure de fin doit être après l'heure de début.", true);
+        if (!value.days.length) return toast("Choisis au moins un jour.", true);
+        saveSlot(n, value, { startTime: value.startTime, endTime: value.endTime, days: value.days });
+      });
+
+      return el("div", { className: "slot-editor" }, [
+        el("div", { className: "slot-times" }, [start, el("span", { textContent: "→" }), end]),
+        days,
+        el("div", { className: "slot-actions" }, [clear, save]),
+      ]);
+    }
+
+    function drawSlots() {
+      const sc = schedule();
+      $("slotList").replaceChildren(...SLOTS.map((n) => {
+        const sl = sc[`slot${n}`];
+        const head = el("button", { type: "button", className: "slot-head" }, [
+          el("span", { className: "slot-name", textContent: `Tranche ${n}` }),
+          el("span", { className: "slot-desc" + (slotIsSet(sl) ? " set" : ""), textContent: slotDesc(sl) }),
+        ]);
+        head.addEventListener("click", () => { openSlot = openSlot === n ? null : n; drawSlots(); });
+        const li = el("li", { className: "slot" + (openSlot === n ? " open" : "") }, [head]);
+        if (openSlot === n) li.append(slotEditor(n, sl));
+        return li;
+      }));
+    }
+
+    function renderSchedule(s) {
+      const sc = s.scheduling || {};
+      const count = SLOTS.filter((n) => slotIsSet(sc[`slot${n}`])).length;
+      $("schedActive").setAttribute("aria-checked", String(sc.active === true));
+      $("schedSub").textContent = `${sc.active ? "Activée" : "Désactivée"} · ${count} tranche${count > 1 ? "s" : ""} réglée${count > 1 ? "s" : ""}`;
+      if (openSlot === null) drawSlots(); // ne pas effacer une saisie en cours
+    }
+
+    function saveSlot(n, value, optimistic) {
+      if (!state) return;
+      state.scheduling = { ...schedule(), [`slot${n}`]: optimistic };
+      openSlot = null;
+      renderSchedule(state);
+      toast("Envoi au poêle… (jusqu'à 15 s si le poêle fait des difficultés)");
+      command("scheduleSlot", value, "schedule");
+    }
+
+    $("schedActive").addEventListener("click", () => {
+      if (!state) return;
+      const next = schedule().active !== true;
+      state.scheduling = { ...schedule(), active: next };
+      renderSchedule(state);
+      renderTimer(timerDate);
+      toast("Envoi au poêle…");
+      command("scheduleActive", next, "schedule");
+    });
+
+    // --- Écrans secondaires (le bouton retour du téléphone les referme aussi) ----
+    const VIEWS = { "": "mainView", "#reglages": "moreView", "#temperatures": "tempView" };
+    function showView(hash) {
+      for (const [h, id] of Object.entries(VIEWS)) $(id).classList.toggle("hidden", h !== hash);
+      window.scrollTo(0, 0);
+      if (hash === "#temperatures") openTemperatures();
+    }
+    function openView(hash) {
+      history.pushState({ view: hash }, "", hash);
+      showView(hash);
+    }
+    function closeView() {
+      if (history.state && history.state.view) history.back();
+      else showView("");
+    }
+    $("openMore").addEventListener("click", () => openView("#reglages"));
+    $("openTemps").addEventListener("click", () => openView("#temperatures"));
+    $("closeMore").addEventListener("click", closeView);
+    $("closeTemps").addEventListener("click", closeView);
+    window.addEventListener("popstate", () => showView(VIEWS[location.hash] ? location.hash : ""));
+    if (location.hash) history.replaceState(null, "", location.pathname);
+
+    // --- Suivi des températures ----------------------------------------------------
+    // Intérieur : relevés du Worker (toutes les 15 min). Extérieur : Open-Meteo, appelé
+    // directement par le téléphone avec les coordonnées arrondies de la commune choisie.
+    // Deux vues : la semaine (du lundi au dimanche) et le jour.
+    const SVGNS = "http://www.w3.org/2000/svg";
+    const svgEl = (tag, attrs = {}) => {
+      const e = document.createElementNS(SVGNS, tag);
+      for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+      return e;
+    };
+    const fmt1 = (v) => (typeof v === "number" ? v.toFixed(1).replace(".", ",") + "°" : "—");
+    const addDays = (day, n) => new Date(Date.parse(`${day}T12:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+    const fmtDay = (day, opts) => new Date(`${day}T12:00:00Z`).toLocaleDateString("fr-BE", { timeZone: "UTC", ...opts });
+    const dayLabel = (day) => fmtDay(day, { weekday: "short", day: "numeric" }).replace(".", "");
+    const mondayOf = (day) => addDays(day, -((new Date(`${day}T12:00:00Z`).getUTCDay() + 6) % 7));
+    const fmtHours = (h) => `${h.toFixed(h < 10 ? 1 : 0).replace(".", ",")} h`;
+    const prefGet = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : v === "1"; } catch { return d; } };
+    const prefSet = (k, v) => { try { localStorage.setItem(k, v ? "1" : "0"); } catch {} };
+
+    let view = { mode: "week", start: null }; // start : lundi de la semaine, ou le jour affiché
+    let chartData = null; // { today, start, span, sampleEveryMin, inside, outside, outsideNote }
+    let loadSeq = 0;
+    let showOutdoor = prefGet("poele.outdoor", true);
+    const outdoorCache = {};
+    const span = () => (view.mode === "week" ? 7 : 1);
+
+    // Minuit à Bruxelles (en ms UTC) pour un jour AAAA-MM-JJ.
+    function brusselsMidnight(day) {
+      const guess = Date.parse(`${day}T00:00:00Z`);
+      const p = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: TZ, hour: "2-digit", minute: "2-digit", hourCycle: "h23" })
+        .formatToParts(new Date(guess)).map((x) => [x.type, x.value]));
+      return guess - (Number(p.hour) * 60 + Number(p.minute)) * 60000;
+    }
+
+    async function openTemperatures() {
+      if (!settings) await loadSettings();
+      if (!view.start) view.start = mondayOf(todayLocal());
+      renderLocation();
+      renderMode();
+      loadChart();
+    }
+
+    function renderMode() {
+      for (const b of $("chartMode").children) b.setAttribute("aria-pressed", String(b.dataset.v === view.mode));
+      $("tableTitle").textContent = view.mode === "week" ? "Valeurs par jour" : "Valeurs par heure";
+      $("weekPrev").setAttribute("aria-label", view.mode === "week" ? "Semaine précédente" : "Jour précédent");
+      $("weekNext").setAttribute("aria-label", view.mode === "week" ? "Semaine suivante" : "Jour suivant");
+    }
+
+    function showDay(day) {
+      view = { mode: "day", start: day };
+      renderMode();
+      loadChart();
+      window.scrollTo(0, 0);
+    }
+
+    async function loadChart() {
+      const seq = ++loadSeq;
+      const n = span(), start = view.start;
+      $("chartNote").textContent = "Chargement…";
+      try {
+        const h = await api(`history?end=${addDays(start, n - 1)}&days=${n}`);
+        if (seq !== loadSeq) return; // une autre période a été demandée entre-temps
+        const inside = [];
+        for (const d of h.days) for (const s of d.samples) inside.push({ t: s[0] * 1000, v: s[1], heat: s[3] === 1 });
+        chartData = { today: h.today, start, span: n, sampleEveryMin: h.sampleEveryMin, inside, outside: [], outsideNote: "" };
+        drawChart();
+        loadOutdoor();
+      } catch (e) {
+        if (e.message !== "auth") $("chartNote").textContent = e.message;
+      }
+    }
+
+    async function loadOutdoor() {
+      const d = chartData, loc = settings && settings.location;
+      if (!d) return;
+      if (!showOutdoor || !loc || d.start > d.today) return drawChart();
+      const daysAgo = Math.round((Date.parse(`${d.today}T12:00:00Z`) - Date.parse(`${d.start}T12:00:00Z`)) / 86400000);
+      if (daysAgo > 91) {
+        d.outsideNote = "Température extérieure disponible seulement pour les 3 derniers mois.";
+        return drawChart();
+      }
+      const key = `${loc.latitude},${loc.longitude},${daysAgo}`;
+      try {
+        const cached = outdoorCache[key];
+        if (!cached || Date.now() - cached.at > 30 * 60000) {
+          const url = `https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}` +
+            `&minutely_15=temperature_2m&past_days=${daysAgo + 1}&forecast_days=1&timezone=GMT&timeformat=unixtime`;
+          const r = await fetch(url);
+          if (!r.ok) throw new Error(String(r.status));
+          const j = await r.json();
+          const pts = j.minutely_15.time.map((t, i) => ({ t: t * 1000, v: j.minutely_15.temperature_2m[i] })).filter((p) => typeof p.v === "number");
+          outdoorCache[key] = { at: Date.now(), pts };
+        }
+        d.outside = outdoorCache[key].pts;
+        d.outsideNote = "";
+      } catch {
+        d.outside = [];
+        d.outsideNote = "Température extérieure indisponible pour le moment.";
+      }
+      if (chartData === d) drawChart();
+    }
+
+    function drawChart() {
+      const d = chartData;
+      if (!d) return;
+      const week = d.span === 7;
+      const svg = $("chart");
+      const W = Math.max(280, $("chartWrap").clientWidth), H = 240;
+      const m = { l: 30, r: 6, t: 8, b: 22 };
+      const step = (d.sampleEveryMin || 15) * 60000;
+      const x0 = brusselsMidnight(d.start), x1 = brusselsMidnight(addDays(d.start, d.span));
+      const now = Date.now();
+      const inside = d.inside.filter((p) => p.t >= x0 && p.t < x1);
+      // Extérieur : jamais au-delà de maintenant (pas de prévision affichée).
+      const outside = showOutdoor ? d.outside.filter((p) => p.t >= x0 && p.t < x1 && p.t <= now) : [];
+      const vals = [...inside.map((p) => p.v), ...outside.map((p) => p.v)];
+      // Graduation : 5 °C sur la semaine, 2 °C sur un jour pour mieux voir les variations.
+      const g = week ? 5 : 2;
+      const lo = vals.length ? Math.floor(Math.min(...vals) / g) * g : 10;
+      const hi = Math.max(lo + (week ? 10 : 6), vals.length ? Math.ceil(Math.max(...vals) / g) * g : 25);
+      const X = (t) => m.l + ((t - x0) / (x1 - x0)) * (W - m.l - m.r);
+      const Y = (v) => m.t + ((hi - v) / (hi - lo)) * (H - m.t - m.b);
+
+      svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+      svg.replaceChildren();
+      const text = (x, y, anchor, s) => { const tx = svgEl("text", { x, y, "text-anchor": anchor }); tx.textContent = s; svg.append(tx); };
+      const vline = (x) => svg.append(svgEl("line", { x1: x, x2: x, y1: m.t, y2: H - m.b, stroke: "var(--line)", "stroke-width": 1 }));
+      for (let v = lo; v <= hi; v += g) {
+        svg.append(svgEl("line", { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), stroke: "var(--line)", "stroke-width": 1 }));
+        text(m.l - 5, Y(v) + 4, "end", `${v}°`);
+      }
+      // Périodes de chauffe en fond
+      for (let i = 0; i < inside.length; i++) {
+        if (!inside[i].heat) continue;
+        let j = i;
+        while (j + 1 < inside.length && inside[j + 1].heat && inside[j + 1].t - inside[j].t <= 2 * step) j++;
+        const a = X(inside[i].t), b = X(Math.min(inside[j].t + step, x1));
+        svg.append(svgEl("rect", { x: a, y: m.t, width: Math.max(1, b - a), height: H - m.t - m.b, fill: "var(--heat-band)" }));
+        i = j;
+      }
+      // Axe du temps : les jours (semaine) ou toutes les 3 heures (jour)
+      if (week) {
+        for (let k = 0; k < 7; k++) {
+          const day = addDays(d.start, k);
+          const a = X(brusselsMidnight(day)), b = X(brusselsMidnight(addDays(day, 1)));
+          if (k > 0) vline(a);
+          text((a + b) / 2, H - 6, "middle", dayLabel(day));
+        }
+      } else {
+        for (let hh = 3; hh < 24; hh += 3) {
+          const x = X(x0 + hh * 3600000);
+          vline(x);
+          text(x, H - 6, "middle", `${hh}h`);
+        }
+      }
+      // Courbes, coupées là où il manque des relevés
+      const path = (pts) => pts.map((p, i) => `${i === 0 || p.t - pts[i - 1].t > 3 * step ? "M" : "L"}${X(p.t).toFixed(1)},${Y(p.v).toFixed(1)}`).join("");
+      const lineAttrs = { fill: "none", "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" };
+      if (outside.length) svg.append(svgEl("path", { ...lineAttrs, d: path(outside), stroke: "var(--series-out)", "stroke-dasharray": "5 4" }));
+      if (inside.length) {
+        svg.append(svgEl("path", { ...lineAttrs, d: path(inside), stroke: "var(--series-in)" }));
+        const last = inside[inside.length - 1];
+        svg.append(svgEl("circle", { cx: X(last.t), cy: Y(last.v), r: 4, fill: "var(--series-in)", stroke: "var(--card)", "stroke-width": 2 }));
+      }
+      // Survol / toucher : ligne verticale + bulle avec toutes les valeurs à cet instant
+      const cross = svgEl("line", { y1: m.t, y2: H - m.b, stroke: "var(--muted)", "stroke-width": 1, visibility: "hidden" });
+      const dotIn = svgEl("circle", { r: 4, fill: "var(--series-in)", stroke: "var(--card)", "stroke-width": 2, visibility: "hidden" });
+      const dotOut = svgEl("circle", { r: 4, fill: "var(--series-out)", stroke: "var(--card)", "stroke-width": 2, visibility: "hidden" });
+      const hit = svgEl("rect", { x: m.l, y: 0, width: W - m.l - m.r, height: H, fill: "transparent" });
+      svg.append(cross, dotIn, dotOut, hit);
+      const nearest = (pts, t) => {
+        let best = null, bd = Infinity;
+        for (const p of pts) { const dd = Math.abs(p.t - t); if (dd < bd) { bd = dd; best = p; } }
+        return bd <= 2 * step ? best : null;
+      };
+      const tipRow = (kind, value, label) => el("div", { className: "tip-row" }, [
+        el("span", { className: `key-line ${kind}` }), el("strong", { textContent: value }), el("span", { textContent: label }),
+      ]);
+      const hide = () => {
+        for (const n of [cross, dotIn, dotOut]) n.setAttribute("visibility", "hidden");
+        $("chartTip").classList.add("hidden");
+      };
+      const show = (ev) => {
+        const rect = svg.getBoundingClientRect();
+        const t = x0 + (((ev.clientX - rect.left) * (W / rect.width) - m.l) / (W - m.l - m.r)) * (x1 - x0);
+        const pin = nearest(inside, t), pout = nearest(outside, t);
+        const ref = pin || pout;
+        if (!ref) return hide();
+        const cx = X(ref.t);
+        cross.setAttribute("x1", cx); cross.setAttribute("x2", cx); cross.setAttribute("visibility", "visible");
+        for (const [dot, p] of [[dotIn, pin], [dotOut, pout]]) {
+          dot.setAttribute("visibility", p ? "visible" : "hidden");
+          if (p) { dot.setAttribute("cx", X(p.t)); dot.setAttribute("cy", Y(p.v)); }
+        }
+        const tip = $("chartTip");
+        const when = week ? { weekday: "short", day: "numeric", hour: "2-digit", minute: "2-digit" } : { hour: "2-digit", minute: "2-digit" };
+        tip.replaceChildren(
+          el("div", { className: "tip-time", textContent: new Date(ref.t).toLocaleString("fr-BE", { timeZone: TZ, ...when }) }),
+          ...(pin ? [tipRow("in", fmt1(pin.v), "Intérieur")] : []),
+          ...(pout ? [tipRow("out", fmt1(pout.v), "Extérieur")] : []),
+          ...(pin ? [el("div", { className: "tip-heat", textContent: pin.heat ? "Poêle en marche" : "Poêle à l'arrêt" })] : []),
+        );
+        tip.classList.remove("hidden");
+        const left = cx * (rect.width / W) - tip.offsetWidth / 2;
+        tip.style.left = `${Math.min(Math.max(0, left), rect.width - tip.offsetWidth)}px`;
+      };
+      hit.addEventListener("pointermove", show);
+      hit.addEventListener("pointerdown", show);
+      hit.addEventListener("pointerleave", (ev) => { if (ev.pointerType === "mouse") hide(); });
+      chartHide = hide;
+
+      // Titre de la période, navigation, notes
+      const end = addDays(d.start, d.span - 1);
+      const label = week
+        ? `${fmtDay(d.start, { day: "numeric", month: "short" })} – ${fmtDay(end, { day: "numeric", month: "short" })}`
+        : fmtDay(d.start, { weekday: "long", day: "numeric", month: "long" });
+      $("weekLabel").textContent = label.charAt(0).toUpperCase() + label.slice(1);
+      $("weekNext").disabled = addDays(d.start, d.span) > d.today;
+      $("legendOut").classList.toggle("hidden", !showOutdoor);
+      $("chart").setAttribute("aria-label", `Températures intérieure et extérieure, ${label}`);
+      const notes = [];
+      if (!inside.length) {
+        notes.push(d.start > d.today ? "Cette période n'a pas encore commencé." : "Pas encore de relevé intérieur sur cette période : un relevé est enregistré toutes les 15 minutes.");
+      }
+      if (showOutdoor && !(settings && settings.location)) notes.push("Choisis ta commune ci-dessous pour afficher la température extérieure.");
+      if (showOutdoor && d.outsideNote) notes.push(d.outsideNote);
+      $("chartNote").textContent = notes.join(" ");
+
+      // Résumé
+      const avg = (a) => a.reduce((s, x) => s + x, 0) / a.length;
+      const inV = inside.map((p) => p.v), outV = outside.map((p) => p.v);
+      $("stInAvg").textContent = inV.length ? fmt1(avg(inV)) : "—";
+      $("stInRange").textContent = inV.length ? `${fmt1(Math.min(...inV))} à ${fmt1(Math.max(...inV))}` : "moyenne";
+      $("stOutAvg").textContent = outV.length ? fmt1(avg(outV)) : "—";
+      $("stOutRange").textContent = outV.length ? `${fmt1(Math.min(...outV))} à ${fmt1(Math.max(...outV))}` : "moyenne";
+      $("stHeat").textContent = inside.length ? fmtHours((inside.filter((p) => p.heat).length * step) / 3600000) : "—";
+
+      // Tableau : par jour (semaine, un jour se touche pour l'ouvrir) ou par heure (jour)
+      const between = (pts, a, b) => pts.filter((p) => p.t >= a && p.t < b);
+      const mm = (pts, f) => (pts.length ? fmt1(f(...pts.map((p) => p.v))) : "—");
+      const heatOf = (pts) => (pts.filter((p) => p.heat).length * step) / 3600000;
+      let head, rows;
+      if (week) {
+        head = ["Jour", "Int. min", "Int. max", "Ext. min", "Ext. max", "Chauffe"];
+        rows = [];
+        for (let k = 0; k < 7; k++) {
+          const day = addDays(d.start, k);
+          if (day > d.today) break;
+          const a = brusselsMidnight(day), b = brusselsMidnight(addDays(day, 1));
+          const di = between(inside, a, b), dout = between(outside, a, b);
+          const tr = el("tr", { className: "clickable" }, [dayLabel(day), mm(di, Math.min), mm(di, Math.max), mm(dout, Math.min), mm(dout, Math.max),
+            di.length ? fmtHours(heatOf(di)) : "—"].map((c) => el("td", { textContent: c })));
+          tr.addEventListener("click", () => showDay(day));
+          rows.push(tr);
+        }
+        $("tableNote").textContent = rows.length ? "Touche un jour pour le voir en détail." : "";
+      } else {
+        head = ["Heure", "Int.", "Ext.", "Chauffe"];
+        rows = [];
+        for (let hh = 0; hh < 24; hh++) {
+          const a = x0 + hh * 3600000, b = a + 3600000;
+          const di = between(inside, a, b), dout = between(outside, a, b);
+          if (!di.length && !dout.length) continue;
+          const mean = (pts) => (pts.length ? fmt1(avg(pts.map((p) => p.v))) : "—");
+          rows.push(el("tr", {}, [`${hh}h`, mean(di), mean(dout), di.length ? `${Math.round(heatOf(di) * 60)} min` : "—"]
+            .map((c) => el("td", { textContent: c }))));
+        }
+        $("tableNote").textContent = rows.length ? "Moyennes de chaque heure." : "";
+      }
+      $("dayTable").replaceChildren(el("thead", {}, el("tr", {}, head.map((h) => el("th", { textContent: h })))), el("tbody", {}, rows));
+    }
+    let chartHide = () => {};
+    document.addEventListener("pointerdown", (ev) => { if (!$("chartWrap").contains(ev.target)) chartHide(); });
+    let resizeTimer = null;
+    window.addEventListener("resize", () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => { if (!$("tempView").classList.contains("hidden")) drawChart(); }, 200);
+    });
+
+    $("chartMode").addEventListener("click", (ev) => {
+      const b = ev.target.closest("button");
+      if (!b || b.dataset.v === view.mode) return;
+      if (b.dataset.v === "day") {
+        // Le jour d'aujourd'hui s'il est dans la semaine affichée, sinon le lundi de cette semaine.
+        const today = todayLocal();
+        showDay(today >= view.start && today <= addDays(view.start, 6) ? today : view.start);
+      } else {
+        view = { mode: "week", start: mondayOf(view.start) };
+        renderMode();
+        loadChart();
+      }
+    });
+    $("weekPrev").addEventListener("click", () => {
+      if (!view.start) return;
+      view.start = addDays(view.start, -span());
+      loadChart();
+    });
+    $("weekNext").addEventListener("click", () => {
+      if (!view.start || $("weekNext").disabled) return;
+      view.start = addDays(view.start, span());
+      loadChart();
+    });
+
+    // Commune pour la température extérieure
+    function renderLocation() {
+      const loc = settings && settings.location;
+      $("locSub").textContent = loc ? [loc.name, loc.region].filter(Boolean).join(", ") : "Aucune commune choisie";
+      $("outdoorToggle").setAttribute("aria-checked", String(showOutdoor));
+      if (!loc) $("locFold").open = true;
+    }
+    $("outdoorToggle").addEventListener("click", () => {
+      showOutdoor = !showOutdoor;
+      prefSet("poele.outdoor", showOutdoor);
+      renderLocation();
+      loadOutdoor();
+    });
+    $("locForm").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const q = $("locInput").value.trim();
+      if (!q) return;
+      $("locResults").replaceChildren(el("li", { className: "note", textContent: "Recherche…" }));
+      try {
+        const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=6&language=fr&format=json`);
+        const j = await r.json();
+        const results = j.results || [];
+        if (!results.length) return $("locResults").replaceChildren(el("li", { className: "note", textContent: "Aucune commune trouvée." }));
+        $("locResults").replaceChildren(...results.map((res) => {
+          const region = [res.admin1, res.country].filter(Boolean).join(", ");
+          const b = el("button", { type: "button" }, [el("span", { textContent: res.name }), " ", el("small", { textContent: region })]);
+          b.addEventListener("click", async () => {
+            try {
+              const saved = await api("settings", { location: { name: res.name, region, latitude: res.latitude, longitude: res.longitude } });
+              settings.location = saved.location;
+              $("locResults").replaceChildren();
+              $("locInput").value = "";
+              $("locFold").open = false;
+              showOutdoor = true;
+              prefSet("poele.outdoor", true);
+              renderLocation();
+              toast("Commune enregistrée");
+              loadOutdoor();
+            } catch (e) {
+              if (e.message !== "auth") toast(e.message, true);
+            }
+          });
+          return el("li", {}, b);
+        }));
+      } catch {
+        $("locResults").replaceChildren(el("li", { className: "note", textContent: "Recherche impossible pour le moment." }));
+      }
+    });
+
+    // --- Horloge du poêle ------------------------------------------------------
+    function renderClock(s) {
+      const off = s.clockOffsetMin;
+      const sub = $("clockSub");
+      if (typeof off !== "number" || typeof s.date !== "string") {
+        sub.textContent = "Inconnue";
+        sub.className = "row-sub";
+        return;
+      }
+      // L'horloge du poêle n'a pas de fuseau : on l'affiche telle quelle.
+      const shown = new Date(s.date.replace(/Z$/, "") + "Z").toLocaleString("fr-BE", {
+        timeZone: "UTC", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
+      });
+      const ok = Math.abs(off) <= 2;
+      sub.textContent = ok ? `À l'heure · ${shown}` : `Décalée · ${shown}`;
+      sub.className = "row-sub" + (ok ? "" : " clock-off");
+    }
+
+    $("clockBtn").addEventListener("click", () => {
+      if (!state) return;
+      $("clockSub").textContent = "Remise à l'heure envoyée…";
+      $("clockSub").className = "row-sub";
+      command("syncClock", true, "syncClock");
+    });
+
+    // --- Auxiliaire le soir et états rencontrés ------------------------------
+    let settings = null;
+    const TZ = "Europe/Brussels";
+    const todayLocal = () => new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date());
+    const hhmm = (iso) => (iso ? new Date(iso).toLocaleTimeString("fr-BE", { hour: "2-digit", minute: "2-digit", timeZone: TZ }) : "—");
+
+    function renderSettings() {
+      if (!settings) return;
+      $("eveningCard").classList.toggle("hidden", !settings.storage);
+      const a = settings.auxEvening;
+      const rt = settings.runtime || {};
+      $("eveEnabled").setAttribute("aria-checked", String(a.enabled));
+      if (document.activeElement !== $("eveTime")) $("eveTime").value = a.time;
+      for (const b of $("eveLevel").children) b.setAttribute("aria-pressed", String(Number(b.dataset.v) === a.level));
+      let info;
+      if (rt.boostActive) info = `En cours depuis ${hhmm(rt.lastBoost)}, jusqu'à l'extinction`;
+      else if (!a.enabled) info = "Désactivé";
+      else if (rt.boostDay === todayLocal()) info = `Fait ce soir · demain dès ${a.time}`;
+      else info = `Ce soir dès ${a.time}, vitesse ${a.level}`;
+      $("eveInfo").textContent = info;
+
+      const list = settings.statuses || [];
+      $("stCount").textContent = `(${list.length})`;
+      $("stList").replaceChildren(...list.map((x) => {
+        const li = document.createElement("li");
+        const left = document.createElement("span");
+        left.textContent = `${x.code} · ${x.description}`;
+        const right = document.createElement("span");
+        right.textContent = x.fr;
+        li.append(left, right);
+        return li;
+      }));
+    }
+
+    async function loadSettings() {
+      try {
+        settings = await api("settings");
+        renderSettings();
+      } catch (e) { /* on réessaiera au prochain rafraîchissement */ }
+    }
+
+    async function saveEvening(patch) {
+      if (!settings) return;
+      const auxEvening = { ...settings.auxEvening, ...patch };
+      settings.auxEvening = auxEvening;
+      renderSettings();
+      try {
+        await api("settings", { auxEvening });
+        toast("Réglage enregistré");
+        setTimeout(loadSettings, 3000);
+      } catch (e) {
+        if (e.message !== "auth") toast(e.message, true);
+        loadSettings();
+      }
+    }
+
+    $("eveEnabled").addEventListener("click", () => saveEvening({ enabled: $("eveEnabled").getAttribute("aria-checked") !== "true" }));
+    $("eveTime").addEventListener("change", () => { if ($("eveTime").value) saveEvening({ time: $("eveTime").value.slice(0, 5) }); });
+    $("eveLevel").addEventListener("click", (ev) => {
+      const b = ev.target.closest("button");
+      if (b) saveEvening({ level: Number(b.dataset.v) });
+    });
+
+    // Actualisation automatique quand l'écran est visible
+    setInterval(() => { if (document.visibilityState === "visible" && state) refresh(true); }, 30000);
+    setInterval(() => {
+      if (!state) return;
+      $("updated").textContent = state.online ? ago(state.lastUpdate) : "hors ligne";
+      if (!locked("timer")) renderTimer(timerDate); // compte à rebours
+    }, 15000);
+    setInterval(() => { if (document.visibilityState === "visible" && settings) loadSettings(); }, 60000);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible" && state) { refresh(true); loadSettings(); }
+    });
+
+    refresh(false);
+  </script>
+</body>
+</html>

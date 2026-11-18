@@ -1,0 +1,23 @@
+{
+  "name": "poele",
+  "version": "1.0.0",
+  "description": "Commande du poêle EK63 (SmartEK63) via un Worker Cloudflare",
+  "scripts": {
+    "dev": "wrangler dev",
+    "demo": "wrangler dev --var DEMO:1 --var ACCESS_CODE:code-demo-1234",
+    "deploy": "wrangler deploy",
+    "test": "node --test test/*.test.mjs",
+    "icons": "node scripts/make-icons.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "amazon-cognito-identity-js": "^6.3.22"
+  },
+  "devDependencies": {
+    "wrangler": "^4.164.0"
+  },
+  "private": true
+}

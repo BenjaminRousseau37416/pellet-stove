@@ -1,0 +1,19 @@
+{
+  // Configuration du Worker Cloudflare qui pilote le poêle.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "poele",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-01",
+  "assets": { "directory": "./public" },
+  // Une seule adresse publique : pas d'URL de prévisualisation par version.
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": { "enabled": true },
+  // Stockage : réglages, automatisme, états rencontrés, jeton SmartEK63 en cache.
+  "kv_namespaces": [{ "binding": "KV", "id": "a2b55750b0e5464b88965d58a13a3091" }],
+  // Automatisme (auxiliaire du soir) vérifié toutes les 5 minutes.
+  "triggers": { "crons": ["*/5 * * * *"] }
+  // Secrets à définir avec « npx wrangler secret put <NOM> » :
+  //   EK63_EMAIL, EK63_PASSWORD : identifiants du compte SmartEK63
+  //   ACCESS_CODE               : code d'accès à l'app (12 caractères minimum)
+}
