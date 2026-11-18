@@ -94,16 +94,18 @@ Ouvrir l'adresse `https://poele.<sous-domaine>.workers.dev` sur le téléphone, 
 ## Montre Wear OS (`watch/`)
 
 Une app sans écran propre : elle ajoute une **tuile** (l'écran qu'on atteint en balayant depuis le cadran)
-avec la température de la pièce, l'état du poêle et un bouton **Allumer / Éteindre**. Le bouton est bloqué
-pendant l'allumage et l'extinction ; toucher la tuile ailleurs actualise l'état. Les appels réseau passent par
+avec la température de la pièce, l'état du poêle, un bouton **Allumer / Éteindre** (bloqué pendant l'allumage
+et l'extinction) et un bouton **Chambre** qui met en marche ou arrête le ventilateur auxiliaire, à la vitesse
+réglée pour « l'auxiliaire le soir ». Toucher la tuile ailleurs actualise l'état. Les appels réseau passent par
 WorkManager, l'état est mis en cache sur la montre et la tuile se redemande toutes les 10 minutes.
 
-La montre n'utilise pas le code d'accès de l'app web mais une **clé dédiée**, qui ne permet que deux choses :
+La montre n'utilise pas le code d'accès de l'app web mais une **clé dédiée**, qui ne permet que ceci :
 
 | Route du Worker | Rôle |
 |---|---|
-| `GET /api/watch` | État résumé : `online`, `isOn`, `phase`, `statusFr`, `roomTemperature`, `canToggle` |
-| `POST /api/watch/power` | `{ "on": true \| false }` |
+| `GET /api/watch` | État résumé : `online`, `isOn`, `phase`, `statusFr`, `roomTemperature`, `canToggle`, `hasAux`, `auxPower`, `auxLevel` |
+| `POST /api/watch/power` | `{ "on": true \| false }` : allumer / éteindre |
+| `POST /api/watch/aux` | `{ "on": true \| false }` : auxiliaire à la vitesse de « l'auxiliaire le soir » / à l'arrêt |
 
 **Configuration**
 1. Créer une clé d'au moins 32 caractères et la déclarer au Worker : `npx wrangler secret put WATCH_TOKEN`.
@@ -163,9 +165,11 @@ Base : `https://8wmnu4exgg.execute-api.eu-central-1.amazonaws.com/prod`.
 
 À savoir :
 - La passerelle valide le format des requêtes : un champ inconnu renvoie un 400 qui liste les champs attendus.
-- Le poêle répond parfois `409 {"code":"HEATER_COMMAND"}` (« la stufa non accetta il comando »), y compris
-  pour une commande qu'il a bien appliquée ou qu'il accepte quelques secondes plus tard. Pour la
-  programmation, le Worker relit l'état puis réessaie deux fois.
+- Le poêle répond parfois `409 {"code":"HEATER_COMMAND"}` (« la stufa non accetta il comando ») ou
+  `408 {"code":"HEATER_TIMEOUT"}` (« la stufa non risponde »), y compris pour une commande qu'il a bien
+  appliquée ou qu'il accepte quelques secondes plus tard. Le Worker relit alors l'état pour voir si la
+  commande est passée, et sinon la renvoie une fois (deux fois pour la programmation ; jamais pour
+  marche/arrêt, qui est seulement vérifié).
 - États confirmés : `0` « Stufa spenta », `11` « Potenza 1 », `41` « Raffreddamento ». Les autres libellés
   sont classés par mots-clés et listés dans l'app au fur et à mesure qu'ils apparaissent.
 

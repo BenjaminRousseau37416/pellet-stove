@@ -13,6 +13,10 @@ data class StoveState(
     val room: Double?,
     val canToggle: Boolean,
     val at: Long,
+    /** Ventilateur auxiliaire (vers la chambre) : présent ?, vitesse actuelle, vitesse utilisée pour l'allumer. */
+    val hasAux: Boolean = false,
+    val auxPower: Int = 0,
+    val auxLevel: Int = 2,
 )
 
 class StoveException(message: String) : Exception(message)
@@ -57,14 +61,21 @@ object StoveApi {
                 room = if (json.isNull("roomTemperature")) null else json.optDouble("roomTemperature"),
                 canToggle = json.optBoolean("canToggle"),
                 at = System.currentTimeMillis(),
+                hasAux = json.optBoolean("hasAux"),
+                auxPower = json.optInt("auxPower", 0),
+                auxLevel = json.optInt("auxLevel", 2),
             )
         } finally {
             connection.disconnect()
         }
     }
 
-    fun setPower(on: Boolean) {
-        val connection = open("/api/watch/power", "POST")
+    fun setPower(on: Boolean) = post("/api/watch/power", on)
+
+    fun setAux(on: Boolean) = post("/api/watch/aux", on)
+
+    private fun post(path: String, on: Boolean) {
+        val connection = open(path, "POST")
         try {
             connection.doOutput = true
             connection.setRequestProperty("Content-Type", "application/json")

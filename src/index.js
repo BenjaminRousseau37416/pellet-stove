@@ -81,7 +81,8 @@ async function watchTokenIsValid(env, request) {
 }
 
 // Ce dont la tuile de la montre a besoin, rien de plus.
-function watchSummary(s) {
+// auxLevel : vitesse utilisée quand on allume l'auxiliaire depuis la montre (celle de « l'auxiliaire le soir »).
+function watchSummary(s, auxLevel) {
   return {
     online: s.online !== false,
     isOn: !!s.isOn,
@@ -89,6 +90,9 @@ function watchSummary(s) {
     statusFr: s.statusFr || s.statusDescription || "",
     roomTemperature: typeof s.roomTemperature === "number" ? s.roomTemperature : null,
     canToggle: s.online !== false && !ek63.TRANSITION_PHASES.has(s.phase),
+    hasAux: (s.fansNumber || 0) >= 2,
+    auxPower: typeof s.fan2Power === "number" ? s.fan2Power : 0,
+    auxLevel,
   };
 }
 
@@ -152,19 +156,27 @@ export default {
       }
 
       // Montre : clé dédiée (en-tête Authorization: Bearer), limitée à /api/watch.
-      if (url.pathname === "/api/watch" || url.pathname === "/api/watch/power") {
+      if (url.pathname === "/api/watch" || url.pathname.startsWith("/api/watch/")) {
         if (!(await sessionIsValid(env, request)) && !(await watchTokenIsValid(env, request))) {
           await sleep(1000);
           return json({ error: "Clé de la montre refusée." }, 401);
         }
+        const auxLevel = (await store.getSettings(env)).auxEvening.level;
         if (url.pathname === "/api/watch" && request.method === "GET") {
-          return json(watchSummary(await backend.getState(env)));
+          return json(watchSummary(await backend.getState(env), auxLevel));
         }
         if (url.pathname === "/api/watch/power" && request.method === "POST") {
           const body = await readJson(request);
           if (!body || typeof body.on !== "boolean") return json({ error: "Requête invalide." }, 400);
           await backend.sendCommand(env, "power", body.on);
           return json({ ok: true });
+        }
+        // Ventilateur auxiliaire (vers la chambre) : marche à la vitesse de « l'auxiliaire le soir », ou arrêt.
+        if (url.pathname === "/api/watch/aux" && request.method === "POST") {
+          const body = await readJson(request);
+          if (!body || typeof body.on !== "boolean") return json({ error: "Requête invalide." }, 400);
+          await backend.sendCommand(env, "fan2", body.on ? auxLevel : 0);
+          return json({ ok: true, auxPower: body.on ? auxLevel : 0 });
         }
         return json({ error: "Introuvable." }, 404);
       }

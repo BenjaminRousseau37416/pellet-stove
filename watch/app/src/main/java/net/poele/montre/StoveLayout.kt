@@ -14,6 +14,7 @@ import java.util.Locale
 /** Mise en page de la tuile (ProtoLayout). */
 object StoveLayout {
     const val TOGGLE = "toggle:"
+    const val AUX = "aux:"
     const val REFRESH = "refresh:"
 
     private const val ORANGE = 0xFFFF7A2E.toInt()
@@ -21,8 +22,9 @@ object StoveLayout {
     private const val WHITE = 0xFFFFFFFF.toInt()
     private const val MUTED = 0xFFB0B0B0.toInt()
     private const val RED = 0xFFFF7070.toInt()
+    private const val BLUE = 0xFF3987E5.toInt() // auxiliaire en marche (même bleu que l'extérieur dans l'app)
 
-    fun build(state: StoveState?, pending: Boolean?, error: String?): LayoutElementBuilders.LayoutElement {
+    fun build(state: StoveState?, pending: Boolean?, pendingAux: Boolean?, error: String?): LayoutElementBuilders.LayoutElement {
         // Identifiant de clic unique à chaque rendu : un ancien clic n'est jamais rejoué.
         val nonce = System.currentTimeMillis().toString()
 
@@ -69,14 +71,16 @@ object StoveLayout {
 
         val column = LayoutElementBuilders.Column.Builder()
             .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
-            .addContent(text("Poêle", 14f, MUTED))
-            .addContent(text(room, 34f, WHITE, bold = true))
-            .addContent(text(status, 14f, MUTED))
-            .addContent(spacer(10f))
-            .addContent(button)
+            .addContent(text("Poêle", 13f, MUTED))
+            .addContent(text(room, 32f, WHITE, bold = true))
+            .addContent(text(status, 13f, MUTED))
             .addContent(spacer(8f))
-            .addContent(text(footer, 12f, if (error != null) RED else MUTED, maxLines = 2))
-            .build()
+            .addContent(button)
+        if (state != null && state.hasAux) {
+            column.addContent(spacer(6f)).addContent(auxButton(state, pendingAux, nonce))
+        }
+        column.addContent(spacer(6f))
+            .addContent(text(footer, 11f, if (error != null) RED else MUTED, maxLines = 2))
 
         // Toucher en dehors du bouton : actualiser l'état.
         return LayoutElementBuilders.Box.Builder()
@@ -85,7 +89,35 @@ object StoveLayout {
             .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
             .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
             .setModifiers(ModifiersBuilders.Modifiers.Builder().setClickable(clickable(REFRESH + nonce)).build())
-            .addContent(column)
+            .addContent(column.build())
+            .build()
+    }
+
+    /** Bouton « Chambre » : ventilateur auxiliaire en marche (bleu) ou à l'arrêt (gris). */
+    private fun auxButton(state: StoveState, pendingAux: Boolean?, nonce: String): LayoutElementBuilders.LayoutElement {
+        val running = state.auxPower > 0
+        val (label, color, enabled) = when {
+            pendingAux == true -> Triple("Chambre…", BUTTON_GREY, false)
+            pendingAux == false -> Triple("Chambre…", BUTTON_GREY, false)
+            !state.online -> Triple("Chambre", BUTTON_GREY, false)
+            running -> Triple("Chambre · ${state.auxPower}", BLUE, true)
+            else -> Triple("Chambre · arrêt", BUTTON_GREY, true)
+        }
+        val modifiers = ModifiersBuilders.Modifiers.Builder()
+            .setBackground(
+                ModifiersBuilders.Background.Builder()
+                    .setColor(argb(color))
+                    .setCorner(ModifiersBuilders.Corner.Builder().setRadius(dp(18f)).build())
+                    .build()
+            )
+        if (enabled) modifiers.setClickable(clickable(AUX + nonce))
+        return LayoutElementBuilders.Box.Builder()
+            .setWidth(dp(132f))
+            .setHeight(dp(36f))
+            .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
+            .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
+            .setModifiers(modifiers.build())
+            .addContent(text(label, 14f, if (running || pendingAux != null) WHITE else MUTED, bold = running))
             .build()
     }
 

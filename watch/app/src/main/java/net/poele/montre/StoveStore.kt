@@ -22,6 +22,9 @@ object StoveStore {
             .put("room", state.room ?: JSONObject.NULL)
             .put("canToggle", state.canToggle)
             .put("at", state.at)
+            .put("hasAux", state.hasAux)
+            .put("auxPower", state.auxPower)
+            .put("auxLevel", state.auxLevel)
         prefs(context).edit().putString("state", json.toString()).apply()
     }
 
@@ -37,6 +40,9 @@ object StoveStore {
                 room = if (json.isNull("room")) null else json.optDouble("room"),
                 canToggle = json.optBoolean("canToggle"),
                 at = json.optLong("at"),
+                hasAux = json.optBoolean("hasAux"),
+                auxPower = json.optInt("auxPower", 0),
+                auxLevel = json.optInt("auxLevel", 2),
             )
         }.getOrNull()
     }
@@ -47,19 +53,28 @@ object StoveStore {
 
     fun error(context: Context): String? = prefs(context).getString("error", null)
 
-    /** Commande envoyée et pas encore confirmée : true = allumage, false = extinction. */
-    fun setPending(context: Context, on: Boolean?) {
+    /** Commande marche/arrêt envoyée et pas encore confirmée : true = allumage, false = extinction. */
+    fun setPending(context: Context, on: Boolean?) = setFlag(context, "pending", on)
+
+    fun pending(context: Context): Boolean? = flag(context, "pending")
+
+    /** Commande de l'auxiliaire envoyée et pas encore confirmée : true = marche, false = arrêt. */
+    fun setPendingAux(context: Context, on: Boolean?) = setFlag(context, "pendingAux", on)
+
+    fun pendingAux(context: Context): Boolean? = flag(context, "pendingAux")
+
+    private fun setFlag(context: Context, key: String, on: Boolean?) {
         val edit = prefs(context).edit()
-        if (on == null) edit.remove("pending").remove("pendingAt")
-        else edit.putBoolean("pending", on).putLong("pendingAt", System.currentTimeMillis())
+        if (on == null) edit.remove(key).remove("${key}At")
+        else edit.putBoolean(key, on).putLong("${key}At", System.currentTimeMillis())
         edit.apply()
     }
 
-    fun pending(context: Context): Boolean? {
+    private fun flag(context: Context, key: String): Boolean? {
         val p = prefs(context)
-        if (!p.contains("pending")) return null
-        if (System.currentTimeMillis() - p.getLong("pendingAt", 0) > PENDING_MAX_MS) return null
-        return p.getBoolean("pending", false)
+        if (!p.contains(key)) return null
+        if (System.currentTimeMillis() - p.getLong("${key}At", 0) > PENDING_MAX_MS) return null
+        return p.getBoolean(key, false)
     }
 
     /** Vrai la première fois qu'on voit ce clic, faux ensuite. */

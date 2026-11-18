@@ -88,6 +88,7 @@ beforeEach(() => {
   ENV = { ...BASE_ENV };
   putHook = null;
   ek63.timing.scheduleRetryDelays = [0, 0];
+  ek63.timing.commandRetryDelays = [0, 0];
   resetCache();
   resetStoreCache();
 });
@@ -332,13 +333,55 @@ test("programmation toujours refusée : message clair après trois essais", asyn
   assert.equal(puts().length, 3);
 });
 
-test("autre commande refusée par le poêle : message clair, pas de nouvelle tentative", async () => {
+const timedOut = () => new Response(JSON.stringify({ message: "La stufa non risponde", code: "HEATER_TIMEOUT" }), { status: 408 });
+
+test("commande toujours refusée : une seule nouvelle tentative, puis message clair", async () => {
   const cookie = await loginCookie();
   putHook = () => refused();
-  const res = await worker.fetch(req("/api/command", { method: "POST", body: { action: "fan1", value: 2 }, cookie }), ENV);
+  const res = await worker.fetch(req("/api/command", { method: "POST", body: { action: "fan1", value: 3 }, cookie }), ENV);
   assert.equal(res.status, 409);
   assert.match((await res.json()).error, /Le poêle a refusé la commande/);
+  assert.equal(puts().length, 2);
+});
+
+test("poêle muet (408) mais commande appliquée : succès sans renvoi", async () => {
+  const cookie = await loginCookie();
+  putHook = (url, body) => { device.fan2Power = body.power; return timedOut(); };
+  const res = await worker.fetch(req("/api/command", { method: "POST", body: { action: "fan2", value: 2 }, cookie }), ENV);
+  assert.equal(res.status, 200);
   assert.equal(puts().length, 1);
+});
+
+test("commande refusée puis acceptée au deuxième envoi", async () => {
+  const cookie = await loginCookie();
+  let n = 0;
+  putHook = () => (++n === 1 ? refused() : new Response(null, { status: 204 }));
+  const res = await worker.fetch(req("/api/command", { method: "POST", body: { action: "powerLevel", value: 4 }, cookie }), ENV);
+  assert.equal(res.status, 200);
+  assert.equal(puts().length, 2);
+});
+
+test("marche/arrêt non confirmé : vérifié mais jamais renvoyé d'office", async () => {
+  const cookie = await loginCookie();
+  setDevice(0, "Stufa spenta");
+  putHook = () => timedOut();
+  const res = await worker.fetch(req("/api/command", { method: "POST", body: { action: "power", value: true }, cookie }), ENV);
+  assert.equal(res.status, 408);
+  assert.match((await res.json()).error, /n'a pas confirmé/);
+  assert.equal(puts().length, 1);
+  // ... et si le poêle a bien démarré, c'est un succès
+  calls = [];
+  putHook = () => { setDevice(2, "Accensione"); return timedOut(); };
+  setDevice(0, "Stufa spenta");
+  const ok = await worker.fetch(req("/api/command", { method: "POST", body: { action: "power", value: true }, cookie }), ENV);
+  assert.equal(ok.status, 200);
+});
+
+test("montre : auxiliaire avec poêle muet mais commande appliquée", async () => {
+  const env = { ...ENV, WATCH_TOKEN: WATCH };
+  putHook = (url, body) => { device.fan2Power = body.power; return timedOut(); };
+  const res = await worker.fetch(watchReq("/api/watch/aux", { method: "POST", body: { on: true } }), env);
+  assert.equal(res.status, 200);
 });
 
 test("programmation : valeurs invalides refusées sans rien envoyer", async () => {
@@ -701,13 +744,31 @@ test("montre : état résumé et marche/arrêt avec la clé dédiée", async () 
   const env = { ...ENV, WATCH_TOKEN: WATCH };
   setDevice(5, "Lavoro");
   const s = await (await worker.fetch(watchReq("/api/watch"), env)).json();
-  assert.deepEqual(s, { online: true, isOn: true, phase: "running", statusFr: "En marche", roomTemperature: 21.5, canToggle: true });
+  assert.deepEqual(s, {
+    online: true, isOn: true, phase: "running", statusFr: "En marche", roomTemperature: 21.5, canToggle: true,
+    hasAux: true, auxPower: 0, auxLevel: 2,
+  });
   calls = [];
   const res = await worker.fetch(watchReq("/api/watch/power", { method: "POST", body: { on: false } }), env);
   assert.equal(res.status, 200);
   assert.deepEqual(puts(), [{ path: "status", body: { status: "off" } }]);
   setDevice(41, "Raffreddamento");
   assert.equal((await (await worker.fetch(watchReq("/api/watch"), env)).json()).canToggle, false);
+});
+
+test("montre : auxiliaire à la vitesse de « l'auxiliaire le soir », ou arrêt", async () => {
+  const env = { ...ENV, WATCH_TOKEN: WATCH, KV: makeKV() };
+  await env.KV.put("settings", JSON.stringify({ auxEvening: { enabled: false, time: "20:00", level: 3 } }));
+  calls = [];
+  const on = await worker.fetch(watchReq("/api/watch/aux", { method: "POST", body: { on: true } }), env);
+  assert.equal(on.status, 200);
+  assert.deepEqual(puts(), [{ path: "fan", body: { fan: 2, power: 3 } }]);
+  calls = [];
+  await worker.fetch(watchReq("/api/watch/aux", { method: "POST", body: { on: false } }), env);
+  assert.deepEqual(puts(), [{ path: "fan", body: { fan: 2, power: 0 } }]);
+  assert.equal((await worker.fetch(watchReq("/api/watch/aux", { method: "POST", body: { on: 1 } }), env)).status, 400);
+  assert.equal((await worker.fetch(watchReq("/api/watch/aux", { method: "POST", body: { on: true }, token: "x".repeat(40) }), env)).status, 401);
+  assert.equal((await worker.fetch(watchReq("/api/watch/autre", { method: "POST", body: {} }), env)).status, 404);
 });
 
 test("montre : la clé ne donne accès à rien d'autre, et une mauvaise clé est refusée", async () => {

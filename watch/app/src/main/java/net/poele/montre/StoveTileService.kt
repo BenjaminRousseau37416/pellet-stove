@@ -24,18 +24,26 @@ class StoveTileService : TileService() {
                 if (cached != null && cached.canToggle && StoveStore.pending(context) == null) {
                     val turnOn = !cached.isOn
                     StoveStore.setPending(context, turnOn)
-                    StoveWorker.enqueue(context, turnOn)
+                    StoveWorker.setPower(context, turnOn)
+                }
+            }
+            clicked.startsWith(StoveLayout.AUX) && StoveStore.firstTimeClick(context, clicked) -> {
+                if (cached != null && cached.online && cached.hasAux && StoveStore.pendingAux(context) == null) {
+                    val auxOn = cached.auxPower == 0
+                    StoveStore.setPendingAux(context, auxOn)
+                    StoveWorker.setAux(context, auxOn)
                 }
             }
             clicked.startsWith(StoveLayout.REFRESH) && StoveStore.firstTimeClick(context, clicked) ->
-                StoveWorker.enqueue(context, null)
+                StoveWorker.refresh(context)
             cached == null || System.currentTimeMillis() - cached.at > STALE_MS ->
-                StoveWorker.enqueue(context, null)
+                StoveWorker.refresh(context)
         }
 
         val layout = StoveLayout.build(
             StoveStore.load(context),
             StoveStore.pending(context),
+            StoveStore.pendingAux(context),
             StoveStore.error(context),
         )
         val tile = TileBuilders.Tile.Builder()

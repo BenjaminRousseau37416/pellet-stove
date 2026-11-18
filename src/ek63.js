@@ -132,9 +132,15 @@ async function call(env, method, path, body) {
     if (!res.ok) {
       let code = null;
       try { code = JSON.parse(text).code || null; } catch {}
-      if (res.status === 409 && code === "HEATER_COMMAND") {
-        // Le serveur a transmis la commande, mais le poêle ne l'a pas acceptée (ou n'a pas répondu à temps).
-        const e = new Ek63Error("Le poêle a refusé la commande : il était peut-être occupé. Réessaie dans quelques secondes.", 409);
+      if ((res.status === 409 && code === "HEATER_COMMAND") || (res.status === 408 && code === "HEATER_TIMEOUT")) {
+        // Le serveur a transmis la commande, mais le poêle l'a refusée (409) ou n'a pas répondu à temps (408).
+        // Dans les deux cas, il arrive qu'elle ait quand même été appliquée : voir sendCommand.
+        const e = new Ek63Error(
+          res.status === 408
+            ? "Le poêle n'a pas confirmé à temps. Réessaie dans quelques secondes."
+            : "Le poêle a refusé la commande : il était peut-être occupé. Réessaie dans quelques secondes.",
+          res.status
+        );
         e.heaterRefused = true;
         throw e;
       }
@@ -300,8 +306,24 @@ function sameSchedule(a, b) {
   return norm(a) === norm(b);
 }
 
-// Délais avant de revérifier puis de réessayer quand le poêle refuse une programmation (modifiables par les tests).
-export const timing = { scheduleRetryDelays: [3000, 6000] };
+// Délais avant de revérifier puis de réessayer quand le poêle refuse ou ne confirme pas (modifiables par les tests).
+// Commandes simples : court, pour rester sous le délai d'attente de la montre (10 s).
+export const timing = { scheduleRetryDelays: [3000, 6000], commandRetryDelays: [2000, 3000] };
+
+// Pour chaque commande : la valeur demandée se retrouve-t-elle dans l'état du poêle ?
+const APPLIED = {
+  temperature: (s, v) => s.temperature === v,
+  powerLevel: (s, v) => s.power === v,
+  fan1: (s, v) => s.fan1Power === v,
+  fan2: (s, v) => s.fan2Power === v,
+  relax: (s, v) => s.relaxMode === v,
+  standby: (s, v) => s.standbyMode === v,
+  mode: (s, v) => s.mode === v,
+  timer: (s, v) => (v === null ? !s.easyTimerDate : !!s.easyTimerDate),
+  power: (s, v) => (v ? s.phase === "ignition" || s.phase === "running" : s.phase !== "ignition" && s.phase !== "running"),
+};
+// Marche/arrêt : on vérifie, mais on ne renvoie jamais la commande d'office.
+const NO_RESEND = new Set(["power"]);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Le poêle refuse parfois une programmation (409 HEATER_COMMAND), y compris une commande qu'il accepte
@@ -351,5 +373,31 @@ export async function sendCommand(env, action, value) {
     }
   }
   const id = await getHeaterId(env);
-  return call(env, "PUT", `/heaters/${encodeURIComponent(id)}/${path}`, body);
+  const put = () => call(env, "PUT", `/heaters/${encodeURIComponent(id)}/${path}`, body);
+  let lastError;
+  try {
+    return await put();
+  } catch (e) {
+    if (!e.heaterRefused || !APPLIED[action]) throw e;
+    lastError = e;
+  }
+  // Le poêle a refusé ou n'a pas confirmé : la commande est peut-être quand même passée.
+  const delays = timing.commandRetryDelays;
+  for (let i = 0; i < delays.length; i++) {
+    await sleep(delays[i]);
+    if (APPLIED[action](await getState(env), value)) {
+      console.log(`Commande ${action} appliquée malgré l'absence de confirmation du poêle.`);
+      return {};
+    }
+    if (NO_RESEND.has(action) || i === delays.length - 1) continue;
+    try {
+      const r = await put();
+      console.log(`Commande ${action} acceptée après une nouvelle tentative.`);
+      return r;
+    } catch (e) {
+      if (!e.heaterRefused) throw e;
+      lastError = e;
+    }
+  }
+  throw lastError;
 }
