@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Aperçu de la tuile dans le sélecteur de tuiles de la montre. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="192dp"
+    android:height="192dp"
+    android:viewportWidth="192"
+    android:viewportHeight="192">
+    <path
+        android:fillColor="#000000"
+        android:pathData="M96,0a96,96 0,1 1,0 192a96,96 0,1 1,0 -192z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M78,62h36v14h-36z" />
+    <path
+        android:fillColor="#AAAAAA"
+        android:pathData="M72,84h48v6h-48z" />
+    <path
+        android:fillColor="#FF7A2E"
+        android:pathData="M68,106h56a13,13 0,0 1,0 26h-56a13,13 0,0 1,0 -26z" />
+</vector>

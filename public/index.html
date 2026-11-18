@@ -170,6 +170,10 @@
     .small-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
     .small-btn { flex: none; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); font-weight: 600; font-size: 14px; }
     .clock-off { color: var(--danger); }
+    .boost { border-top: 1px solid var(--line); margin-top: 14px; padding-top: 14px; }
+    .boost-controls { display: flex; gap: 8px; margin-top: 10px; }
+    .boost-controls .seg { flex: 1; }
+    .boost-controls .small-btn { min-width: 84px; }
     .timer-btn { margin-top: 14px; padding: 13px; font-size: 16px; }
     .timer-active .row-sub { color: var(--on); font-weight: 600; }
     .time { font: inherit; font-size: 20px; font-weight: 650; font-variant-numeric: tabular-nums; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); color: var(--text); }
@@ -238,6 +242,18 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/></svg>
           <span id="powerLabel">—</span>
         </button>
+        <div class="boost">
+          <div class="row-title">Boost <span class="row-sub">· puissance 5</span></div>
+          <div class="row-sub" id="boostSub">—</div>
+          <div class="boost-controls">
+            <div class="seg" id="boostDur">
+              <button type="button" data-v="15">15 min</button>
+              <button type="button" data-v="30">30 min</button>
+              <button type="button" data-v="60">1 h</button>
+            </div>
+            <button id="boostBtn" class="small-btn primary" type="button">Lancer</button>
+          </div>
+        </div>
       </section>
 
       <section class="card">
@@ -498,6 +514,7 @@
         $("powerLabel").textContent = busyLabel || (s.isOn ? "Éteindre" : "Allumer");
       }
       if (!locked("timer")) renderTimer(s.easyTimerDate);
+      if (!locked("boost")) renderBoost(s);
       if (!locked("syncClock")) renderClock(s);
       if (!locked("schedule")) renderSchedule(s);
       if (!locked("temperature")) $("temp").textContent = fmtSetpoint(s.temperature);
@@ -1155,6 +1172,50 @@
       }
     });
 
+    // --- Boost : puissance 5 pendant une durée, puis retour aux réglages d'avant ---
+    let boostMinutes = (() => { try { return Number(localStorage.getItem("poele.boost")) || 30; } catch { return 30; } })();
+
+    function renderBoost(s) {
+      const b = s.boost;
+      // Le serveur termine le boost au plus 5 minutes après l'heure prévue.
+      const active = !!b && Date.parse(b.until) > Date.now() - 6 * 60000;
+      const canStart = s.phase === "running" || s.phase === "ignition";
+      $("boostDur").classList.toggle("hidden", active);
+      for (const x of $("boostDur").children) x.setAttribute("aria-pressed", String(Number(x.dataset.v) === boostMinutes));
+      if (active) {
+        const left = Math.round((Date.parse(b.until) - Date.now()) / 60000);
+        $("boostSub").textContent = left > 0
+          ? `Jusqu'à ${hhmm(b.until)} (encore ${fmtDuration(left)}), puis retour à la puissance ${b.prevPower ?? "d'avant"}`
+          : "Fin du boost : retour à tes réglages en cours…";
+        $("boostBtn").textContent = "Arrêter";
+        $("boostBtn").className = "small-btn";
+        $("boostBtn").disabled = false;
+      } else {
+        $("boostSub").textContent = canStart
+          ? "Chauffe au maximum, puis revient tout seul à tes réglages"
+          : "Disponible quand le poêle est en marche";
+        $("boostBtn").textContent = "Lancer";
+        $("boostBtn").className = "small-btn primary";
+        $("boostBtn").disabled = !canStart;
+      }
+    }
+
+    $("boostDur").addEventListener("click", (ev) => {
+      const b = ev.target.closest("button");
+      if (!b) return;
+      boostMinutes = Number(b.dataset.v);
+      try { localStorage.setItem("poele.boost", String(boostMinutes)); } catch {}
+      if (state) renderBoost(state);
+    });
+
+    $("boostBtn").addEventListener("click", () => {
+      if (!state || $("boostBtn").disabled) return;
+      const stopping = !!state.boost && $("boostBtn").textContent === "Arrêter";
+      state.boost = stopping ? null : { until: new Date(Date.now() + boostMinutes * 60000).toISOString(), minutes: boostMinutes, prevPower: state.power };
+      renderBoost(state);
+      command("boost", stopping ? 0 : boostMinutes, "boost");
+    });
+
     // --- Horloge du poêle ------------------------------------------------------
     function renderClock(s) {
       const off = s.clockOffsetMin;
@@ -1249,6 +1310,7 @@
       if (!state) return;
       $("updated").textContent = state.online ? ago(state.lastUpdate) : "hors ligne";
       if (!locked("timer")) renderTimer(timerDate); // compte à rebours
+      if (!locked("boost")) renderBoost(state);
     }, 15000);
     setInterval(() => { if (document.visibilityState === "visible" && settings) loadSettings(); }, 60000);
     document.addEventListener("visibilitychange", () => {

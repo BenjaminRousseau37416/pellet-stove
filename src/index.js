@@ -6,6 +6,7 @@ import * as demo from "./demo.js";
 import * as store from "./store.js";
 import { runAutomation } from "./automation.js";
 import { isSampleTick, recordSample, readHistory, demoHistory, brusselsDay, SAMPLE_EVERY_MIN } from "./history.js";
+import { setBoost, checkBoost, clearBoost, getBoost, publicBoost } from "./boost.js";
 
 const COOKIE = "poele_session";
 const SESSION_DAYS = 365;
@@ -65,6 +66,32 @@ async function sessionIsValid(env, request) {
   }
 }
 
+// --- Montre (Wear OS) : clé dédiée, au moins 32 caractères, comparée en temps constant ---
+const MIN_WATCH_TOKEN_LENGTH = 32;
+
+async function watchTokenIsValid(env, request) {
+  const m = (request.headers.get("Authorization") || "").match(/^Bearer (\S+)$/);
+  if (!m || !env.WATCH_TOKEN || env.WATCH_TOKEN.length < MIN_WATCH_TOKEN_LENGTH) return false;
+  const k = await crypto.subtle.importKey("raw", enc.encode("montre-v1:" + env.WATCH_TOKEN), { name: "HMAC", hash: "SHA-256" }, false, [
+    "sign",
+    "verify",
+  ]);
+  const expected = await crypto.subtle.sign("HMAC", k, enc.encode(env.WATCH_TOKEN));
+  return crypto.subtle.verify("HMAC", k, expected, enc.encode(m[1]));
+}
+
+// Ce dont la tuile de la montre a besoin, rien de plus.
+function watchSummary(s) {
+  return {
+    online: s.online !== false,
+    isOn: !!s.isOn,
+    phase: s.phase,
+    statusFr: s.statusFr || s.statusDescription || "",
+    roomTemperature: typeof s.roomTemperature === "number" ? s.roomTemperature : null,
+    canToggle: s.online !== false && !ek63.TRANSITION_PHASES.has(s.phase),
+  };
+}
+
 function sessionCookie(value, maxAge) {
   return `${COOKIE}=${value}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${maxAge}`;
 }
@@ -87,6 +114,7 @@ export default {
     const backend = env.DEMO === "1" ? demo : ek63;
     const now = new Date(controller.scheduledTime || Date.now());
     ctx.waitUntil(runAutomation(env, backend, now).catch((e) => console.error(`Automatisme : ${e.message || e}`)));
+    ctx.waitUntil(checkBoost(env, backend, now).catch((e) => console.error(`Boost : ${e.message || e}`)));
     // Relevé de température toutes les 15 minutes (pas en démo : l'historique y est fictif).
     if (isSampleTick(now) && env.DEMO !== "1") {
       ctx.waitUntil(recordSample(env, backend, now).catch((e) => console.error(`Relevé : ${e.message || e}`)));
@@ -123,12 +151,30 @@ export default {
         return json({ ok: true }, 200, { "Set-Cookie": sessionCookie("", 0) });
       }
 
+      // Montre : clé dédiée (en-tête Authorization: Bearer), limitée à /api/watch.
+      if (url.pathname === "/api/watch" || url.pathname === "/api/watch/power") {
+        if (!(await sessionIsValid(env, request)) && !(await watchTokenIsValid(env, request))) {
+          await sleep(1000);
+          return json({ error: "Clé de la montre refusée." }, 401);
+        }
+        if (url.pathname === "/api/watch" && request.method === "GET") {
+          return json(watchSummary(await backend.getState(env)));
+        }
+        if (url.pathname === "/api/watch/power" && request.method === "POST") {
+          const body = await readJson(request);
+          if (!body || typeof body.on !== "boolean") return json({ error: "Requête invalide." }, 400);
+          await backend.sendCommand(env, "power", body.on);
+          return json({ ok: true });
+        }
+        return json({ error: "Introuvable." }, 404);
+      }
+
       if (!(await sessionIsValid(env, request))) return json({ error: "Code d'accès requis." }, 401);
 
       if (url.pathname === "/api/state" && request.method === "GET") {
         const state = await backend.getState(env);
         await background(ctx, store.recordStatus(env, state));
-        return json(state);
+        return json({ ...state, boost: publicBoost(await getBoost(env)) });
       }
 
       if (url.pathname === "/api/settings" && request.method === "GET") {
@@ -168,7 +214,13 @@ export default {
       if (url.pathname === "/api/command" && request.method === "POST") {
         const body = await readJson(request);
         if (!body || typeof body.action !== "string") return json({ error: "Requête invalide." }, 400);
+        if (body.action === "boost") {
+          const result = await setBoost(env, backend, body.value === undefined ? null : body.value);
+          return json({ ok: true, boost: publicBoost(result.boost) });
+        }
         const result = await backend.sendCommand(env, body.action, body.value);
+        // Réglage manuel de la puissance, du mode ou du relax : l'utilisateur reprend la main sur le boost.
+        if (["powerLevel", "mode", "relax"].includes(body.action)) await clearBoost(env);
         return json({ ok: true, result });
       }
 

@@ -13,6 +13,8 @@ officielle, tourne **gratuitement sur Cloudflare Workers** et est protégée par
 - Température de la pièce et état du poêle traduit en français (allumage, en marche, refroidissement…).
 - Marche / arrêt, bloqué pendant l'allumage, l'extinction et le nettoyage (et refusé côté serveur).
 - Ventilateur principal (1–3) et auxiliaire (arrêt, 1–3), puissance (1–5), mode manuel / automatique.
+- **Boost** : puissance 5 pendant 15 min, 30 min ou 1 h, puis retour automatique à la puissance, au mode et
+  au relax d'avant (aussi dès que le poêle s'éteint). Changer soi-même la puissance arrête le boost.
 - **Easy timer** : allumage ou extinction différés, par demi-heures, avec compte à rebours et annulation.
 - **Auxiliaire le soir** : à partir d'une heure choisie, dès que le poêle est en marche, l'auxiliaire passe à
   la vitesse voulue, puis repasse à l'arrêt à la prochaine extinction du poêle.
@@ -22,6 +24,9 @@ officielle, tourne **gratuitement sur Cloudflare Workers** et est protégée par
 - **Programmation hebdomadaire** : 8 tranches horaires (heures par demi-heures, jours de la semaine).
 - Remise à l'heure de l'horloge du poêle.
 - Liste des états du poêle rencontrés (code et libellé italien → français).
+
+**Montre Wear OS**
+- Une tuile « Poêle » : température de la pièce, état, et un bouton Allumer / Éteindre (voir `watch/`).
 
 **Suivi des températures**
 - Relevé de la température de la pièce toutes les 15 minutes, conservé 400 jours.
@@ -36,12 +41,13 @@ Téléphone (page web)
    │  code d'accès → cookie de session (HttpOnly, 1 an)
    ▼
 Worker Cloudflare  ── /api/state, /api/command, /api/settings, /api/history
-   │  tâche programmée toutes les 5 min : auxiliaire du soir + relevé de température (1 sur 3)
+   │  tâche programmée toutes les 5 min : auxiliaire du soir, fin du boost, relevé de température (1 sur 3)
    │  stockage KV : réglages, états rencontrés, historique, jeton en cache
    ▼
 Cloud SmartEK63 (AWS Cognito + API Gateway)  ──►  poêle (module Wi-Fi)
 
 Téléphone ──► Open-Meteo (température extérieure, appelé directement par la page)
+Montre (tuile Wear OS) ──► Worker /api/watch, avec une clé dédiée (lecture de l'état + marche/arrêt)
 ```
 
 | Fichier | Rôle |
@@ -50,12 +56,14 @@ Téléphone ──► Open-Meteo (température extérieure, appelé directement 
 | `src/ek63.js` | Client du cloud SmartEK63 : connexion, jeton, commandes, traduction et phase des états |
 | `src/store.js` | Stockage KV : réglages, état de l'automatisme, états rencontrés |
 | `src/automation.js` | Automatisme « auxiliaire le soir » |
+| `src/boost.js` | Mode boost : lancement, fin automatique, retour aux réglages d'avant |
 | `src/history.js` | Relevés de température et lecture de l'historique |
 | `src/demo.js` | Faux poêle pour le mode démo |
 | `public/` | Interface (une seule page HTML, sans dépendance), manifeste et icônes |
 | `test/worker.test.mjs` | Tests automatiques avec un faux serveur SmartEK63 et un faux KV |
 | `scripts/make-icons.mjs` | Génère les icônes PNG |
 | `tools/` | Scripts de diagnostic lancés depuis un PC (voir plus bas) |
+| `watch/` | App Wear OS (Kotlin) : la tuile Marche/Arrêt pour la montre |
 
 ## Installation
 
@@ -82,6 +90,44 @@ npx wrangler secret put ACCESS_CODE
 
 Ouvrir l'adresse `https://poele.<sous-domaine>.workers.dev` sur le téléphone, entrer le code, puis
 « Ajouter à l'écran d'accueil ». La commune pour la température extérieure se choisit dans l'écran Températures.
+
+## Montre Wear OS (`watch/`)
+
+Une app sans écran propre : elle ajoute une **tuile** (l'écran qu'on atteint en balayant depuis le cadran)
+avec la température de la pièce, l'état du poêle et un bouton **Allumer / Éteindre**. Le bouton est bloqué
+pendant l'allumage et l'extinction ; toucher la tuile ailleurs actualise l'état. Les appels réseau passent par
+WorkManager, l'état est mis en cache sur la montre et la tuile se redemande toutes les 10 minutes.
+
+La montre n'utilise pas le code d'accès de l'app web mais une **clé dédiée**, qui ne permet que deux choses :
+
+| Route du Worker | Rôle |
+|---|---|
+| `GET /api/watch` | État résumé : `online`, `isOn`, `phase`, `statusFr`, `roomTemperature`, `canToggle` |
+| `POST /api/watch/power` | `{ "on": true \| false }` |
+
+**Configuration**
+1. Créer une clé d'au moins 32 caractères et la déclarer au Worker : `npx wrangler secret put WATCH_TOKEN`.
+2. Créer `watch/secrets.properties` (ignoré par git) :
+   ```properties
+   WORKER_URL=https://poele.<sous-domaine>.workers.dev
+   WATCH_TOKEN=<la même clé>
+   ```
+3. Créer `watch/local.properties` (ignoré par git) avec `sdk.dir=C:/chemin/vers/Android/Sdk`.
+
+**Compilation** (JDK 17 ou plus, SDK Android avec `platforms;android-36` et `build-tools;36.0.0`) :
+```bash
+cd watch
+./gradlew assembleDebug   # → app/build/outputs/apk/debug/app-debug.apk
+```
+Derrière un proxy d'entreprise : `JAVA_TOOL_OPTIONS=-Djavax.net.ssl.trustStoreType=Windows-ROOT` (Windows).
+
+**Installation sur la montre** (Wear OS 4 ou plus récent, PC et montre sur le même Wi-Fi) :
+1. Sur la montre : *Paramètres → À propos de la montre → Informations sur le logiciel*, toucher 5 fois
+   *Version du logiciel* ; puis *Options de développement* → activer *Débogage ADB* et *Débogage sans fil*.
+2. *Débogage sans fil → Associer un nouvel appareil* : noter l'adresse, le port et le code affichés.
+3. Sur le PC : `adb pair <adresse>:<port d'association> <code>`, puis `adb connect <adresse>:<port>` (le port
+   affiché sur l'écran *Débogage sans fil*), puis `adb install -r watch/app/build/outputs/apk/debug/app-debug.apk`.
+4. Sur la montre : appui long sur le cadran ou balayage jusqu'à la fin des tuiles → *Ajouter une tuile* → « Poêle ».
 
 ## Développement
 

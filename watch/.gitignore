@@ -1,0 +1,6 @@
+.gradle/
+.kotlin/
+build/
+local.properties
+# Adresse du Worker et clé de la montre : jamais dans git
+secrets.properties

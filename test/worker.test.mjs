@@ -9,6 +9,7 @@ import { resetCache, translateStatus, describeStatus } from "../src/ek63.js";
 import { resetStoreCache } from "../src/store.js";
 import { runAutomation, localTime } from "../src/automation.js";
 import { isSampleTick, recordSample, dayRange } from "../src/history.js";
+import { checkBoost } from "../src/boost.js";
 
 const BASE_ENV = { ACCESS_CODE: "un-code-de-test-assez-long", EK63_EMAIL: "test@example.com", EK63_PASSWORD: "secret" };
 const HOST = "https://poele.example.workers.dev";
@@ -25,6 +26,9 @@ function makeKV() {
     },
     async put(k, v) {
       m.set(k, v);
+    },
+    async delete(k) {
+      m.delete(k);
     },
   };
 }
@@ -600,6 +604,120 @@ test("commune : enregistrée arrondie, sans écraser l'auxiliaire du soir", asyn
     const r = await worker.fetch(req("/api/settings", { method: "POST", body: { location: bad }, cookie }), ENV);
     assert.equal(r.status, 400, JSON.stringify(bad));
   }
+});
+
+// --- Boost -----------------------------------------------------------------
+const cmd = (cookie, action, value) => worker.fetch(req("/api/command", { method: "POST", body: { action, value }, cookie }), ENV);
+
+test("boost en mode manuel : puissance 5, puis retour à la puissance d'avant", async () => {
+  ENV.KV = makeKV();
+  const cookie = await loginCookie();
+  setDevice(11, "Potenza 2");
+  Object.assign(device, { power: 2, mode: "manual", relaxMode: false });
+  calls = [];
+  const t0 = Date.now();
+  const res = await cmd(cookie, "boost", 30);
+  assert.equal(res.status, 200);
+  assert.deepEqual(puts(), [{ path: "power", body: { power: 5 } }]);
+  const s = await (await worker.fetch(req("/api/state", { cookie }), ENV)).json();
+  assert.equal(s.boost.prevPower, 2);
+  assert.ok(Math.abs(Date.parse(s.boost.until) - t0 - 30 * 60000) < 5000);
+
+  // Pendant le boost : rien ne change
+  device.power = 5;
+  calls = [];
+  assert.equal((await checkBoost(ENV, ek63, new Date(t0 + 10 * 60000))).action, "running");
+  assert.equal(puts().length, 0);
+  // À la fin : retour à la puissance 2
+  assert.equal((await checkBoost(ENV, ek63, new Date(t0 + 31 * 60000))).action, "restored");
+  assert.deepEqual(puts(), [{ path: "power", body: { power: 2 } }]);
+  assert.equal(await ENV.KV.get("boost"), null);
+});
+
+test("boost depuis le mode automatique avec relax : tout est remis à la fin", async () => {
+  ENV.KV = makeKV();
+  const cookie = await loginCookie();
+  setDevice(5, "Lavoro");
+  Object.assign(device, { power: 3, mode: "auto", relaxMode: true });
+  calls = [];
+  assert.equal((await cmd(cookie, "boost", 15)).status, 200);
+  assert.deepEqual(puts(), [
+    { path: "relax", body: { relaxMode: false } },
+    { path: "mode", body: { mode: "manual" } },
+    { path: "power", body: { power: 5 } },
+  ]);
+  setDevice(41, "Raffreddamento"); // le poêle s'éteint avant la fin du boost
+  Object.assign(device, { power: 5, mode: "manual", relaxMode: false });
+  calls = [];
+  assert.equal((await checkBoost(ENV, ek63, new Date())).action, "restored");
+  assert.deepEqual(puts(), [
+    { path: "power", body: { power: 3 } },
+    { path: "mode", body: { mode: "auto" } },
+    { path: "relax", body: { relaxMode: true } },
+  ]);
+});
+
+test("boost : refusé poêle éteint, arrêt manuel, reprise en main", async () => {
+  ENV.KV = makeKV();
+  const cookie = await loginCookie();
+  setDevice(0, "Stufa spenta");
+  calls = [];
+  assert.equal((await cmd(cookie, "boost", 30)).status, 409);
+  assert.equal(puts().length, 0);
+  assert.equal((await cmd(cookie, "boost", 500)).status, 400);
+
+  // Arrêt manuel : réglages remis immédiatement
+  setDevice(5, "Lavoro");
+  Object.assign(device, { power: 1, mode: "manual", relaxMode: false });
+  await cmd(cookie, "boost", 30);
+  device.power = 5;
+  calls = [];
+  assert.equal((await cmd(cookie, "boost", 0)).status, 200);
+  assert.deepEqual(puts(), [{ path: "power", body: { power: 1 } }]);
+  assert.equal(await ENV.KV.get("boost"), null);
+
+  // L'utilisateur change lui-même la puissance pendant le boost : le boost s'arrête sans rien remettre
+  await cmd(cookie, "boost", 30);
+  await cmd(cookie, "powerLevel", 3);
+  assert.equal(await ENV.KV.get("boost"), null);
+
+  // Même chose détectée par la tâche programmée (changement fait depuis l'app officielle)
+  await cmd(cookie, "boost", 30);
+  device.power = 4;
+  calls = [];
+  assert.equal((await checkBoost(ENV, ek63, new Date())).action, "taken-over");
+  assert.equal(puts().length, 0);
+});
+
+// --- Montre ----------------------------------------------------------------
+const WATCH = "une-cle-de-montre-de-test-tres-longue-0123456789";
+const watchReq = (path, { method = "GET", body, token = WATCH } = {}) => {
+  const headers = { Authorization: `Bearer ${token}` };
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+  return new Request(HOST + path, { method, headers, body: body !== undefined ? JSON.stringify(body) : undefined });
+};
+
+test("montre : état résumé et marche/arrêt avec la clé dédiée", async () => {
+  const env = { ...ENV, WATCH_TOKEN: WATCH };
+  setDevice(5, "Lavoro");
+  const s = await (await worker.fetch(watchReq("/api/watch"), env)).json();
+  assert.deepEqual(s, { online: true, isOn: true, phase: "running", statusFr: "En marche", roomTemperature: 21.5, canToggle: true });
+  calls = [];
+  const res = await worker.fetch(watchReq("/api/watch/power", { method: "POST", body: { on: false } }), env);
+  assert.equal(res.status, 200);
+  assert.deepEqual(puts(), [{ path: "status", body: { status: "off" } }]);
+  setDevice(41, "Raffreddamento");
+  assert.equal((await (await worker.fetch(watchReq("/api/watch"), env)).json()).canToggle, false);
+});
+
+test("montre : la clé ne donne accès à rien d'autre, et une mauvaise clé est refusée", async () => {
+  const env = { ...ENV, WATCH_TOKEN: WATCH };
+  assert.equal((await worker.fetch(watchReq("/api/state"), env)).status, 401);
+  assert.equal((await worker.fetch(watchReq("/api/command", { method: "POST", body: { action: "fan1", value: 2 } }), env)).status, 401);
+  assert.equal((await worker.fetch(watchReq("/api/watch", { token: WATCH + "x" }), env)).status, 401);
+  assert.equal((await worker.fetch(watchReq("/api/watch", { token: "trop-courte" }), { ...env, WATCH_TOKEN: "trop-courte" })).status, 401);
+  assert.equal((await worker.fetch(watchReq("/api/watch"), ENV)).status, 401); // pas de clé configurée
+  assert.equal((await worker.fetch(watchReq("/api/watch/power", { method: "POST", body: { on: "oui" } }), env)).status, 400);
 });
 
 // --- Démo -----------------------------------------------------------------
