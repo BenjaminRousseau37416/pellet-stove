@@ -2,7 +2,8 @@
 // sans toucher au vrai poêle ni avoir besoin des identifiants SmartEK63.
 // L'allumage et l'extinction durent 20 secondes, pour voir le bouton se bloquer.
 
-import { Ek63Error, COMMANDS, TRANSITION_PHASES, enrichState, brusselsLocalIso, SCHEDULE_ACTIONS, applyScheduleChange } from "./ek63.js";
+import { Ek63Error, COMMANDS, TRANSITION_PHASES, enrichState, brusselsLocalIso, SCHEDULE_ACTIONS, applyScheduleChange, translateStatus } from "./ek63.js";
+import { normalizeAlarms } from "./alarms.js";
 
 const TRANSITION_MS = 20000;
 
@@ -41,6 +42,15 @@ function currentStatus() {
   const inTransition = Date.now() - changedAt < TRANSITION_MS;
   if (target) return inTransition ? [2, "Accensione"] : [5, "Lavoro"];
   return inTransition && changedAt ? [41, "Raffreddamento"] : [0, "Stufa spenta"];
+}
+
+// Historique d'alarmes fictif, au format du vrai serveur.
+export async function getAlarms() {
+  return normalizeAlarms([
+    { code: "ALARM-1", preState: 40, preStateDescription: "Spegnimento", state: 51, stateDescription: "A03 - fine pellet / stop fiamma", date: "2026-11-02T21:12:37.000" },
+    { code: "ALARM-2", preState: 4, preStateDescription: "accensione: CONTROLLO INCREMENTO TEMPERATURA FUMI", state: 50, stateDescription: "A04 - mancata accensione", date: "2026-11-18T17:07:08.000" },
+    { code: "ALARM-3", preState: 40, preStateDescription: "Spegnimento", state: 63, stateDescription: "A11 - intervento pressostato sicurezza", date: "2026-10-18T07:11:26.000" },
+  ], translateStatus);
 }
 
 export async function getState() {

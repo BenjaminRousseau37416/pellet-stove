@@ -1,6 +1,8 @@
 // Client du cloud SmartEK63 (Edilkamin, marque EK63).
 // Serveur et identifiants Cognito repris de https://github.com/smarthomesven/homey-smartek63
 
+import { describeAlarm, normalizeAlarms } from "./alarms.js";
+
 const COGNITO_URL = "https://cognito-idp.eu-central-1.amazonaws.com/";
 const CLIENT_ID = "751nsgtv5okg7u05mneacrn480";
 export const API_URL = "https://8wmnu4exgg.execute-api.eu-central-1.amazonaws.com/prod";
@@ -13,6 +15,8 @@ const ON_STATUSES = new Set([1, 4, 5, 10, 11]);
 // Confirmés sur le poêle : "Stufa spenta" (0), "Potenza 1" (11), "Raffreddamento" (41).
 // Les autres sont déduits du vocabulaire Edilkamin. La traduction peut être une fonction du résultat de la regex.
 const RULES = [
+  // Alarme en cours, ex. "A03 - fine pellet / stop fiamma" (état 51), "A04 - mancata accensione" (50).
+  [/^A(\d{1,2})\s*-/, (m) => `Alarme : ${describeAlarm(Number(m[1])).title}`, "alarm"],
   [/potenza\s*(\d+)/i, (m) => `En marche · puissance ${m[1]}`, "running"],
   [/allarme/i, "Alarme", "alarm"],
   [/errore|blocco/i, "Erreur", "alarm"],
@@ -185,6 +189,12 @@ function clockOffsetMinutes(d) {
 export function enrichState(d) {
   const { fr, phase } = describeStatus(d.status, d.statusDescription);
   return { ...d, phase, statusFr: fr, isOn: phase === "running" || phase === "standby", clockOffsetMin: clockOffsetMinutes(d) };
+}
+
+// Historique des alarmes du poêle (lecture seule), traduit et trié du plus récent au plus ancien.
+export async function getAlarms(env) {
+  const id = await getHeaterId(env);
+  return normalizeAlarms(await call(env, "GET", `/heaters/${encodeURIComponent(id)}/alarms`), translateStatus);
 }
 
 export async function getState(env) {

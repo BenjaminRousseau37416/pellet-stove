@@ -40,6 +40,14 @@ let validToken;
 let device;
 let ENV;
 let putHook; // permet à un test de simuler la réponse du poêle à une commande
+// Extrait du vrai historique d'alarmes (format relevé le 2026-11-19), volontairement dans le désordre.
+const ALARMS_RAW = [
+  { code: "ALARM-1", preState: 40, preStateDescription: "Spegnimento", state: 51, stateDescription: "A03 - fine pellet / stop fiamma", date: "2026-04-11T09:01:59.000" },
+  { code: "ALARM-2", preState: 4, preStateDescription: "accensione: CONTROLLO INCREMENTO TEMPERATURA FUMI", state: 50, stateDescription: "A04 - mancata accensione", date: "2026-11-18T17:07:08.000" },
+  { code: "ALARM-3", preState: 40, preStateDescription: "Spegnimento", state: 51, stateDescription: "A03 - fine pellet / stop fiamma", date: "2018-09-10T07:47:53.000" },
+  { code: "ALARM-8", preState: 40, preStateDescription: "Spegnimento", state: 63, stateDescription: "A11 - intervento pressostato sicurezza", date: "2026-02-18T07:11:26.000" },
+  { code: "ALARM-9", preState: 0, preStateDescription: "", state: 0, stateDescription: "", date: null },
+];
 const refused = () => new Response(JSON.stringify({ message: "La stufa non accetta il comando inviato", code: "HEATER_COMMAND" }), { status: 409 });
 const heater = { id: "AABBCCDDEEFF", name: "EK63-TEST" };
 
@@ -63,6 +71,7 @@ globalThis.fetch = async (url, init = {}) => {
   if (url.includes("execute-api")) {
     if (init.headers.Authorization !== validToken) return new Response("Unauthorized", { status: 401 });
     if (url.endsWith("/heaters")) return new Response(JSON.stringify([heater]));
+    if (url.endsWith(`/heaters/${heater.id}/alarms`)) return new Response(JSON.stringify(ALARMS_RAW));
     if (url.endsWith(`/heaters/${heater.id}`)) return new Response(JSON.stringify(device));
     if ((init.method || "GET") === "PUT") {
       return putHook ? putHook(url, JSON.parse(init.body)) : new Response(null, { status: 204 });
@@ -647,6 +656,26 @@ test("commune : enregistrée arrondie, sans écraser l'auxiliaire du soir", asyn
     const r = await worker.fetch(req("/api/settings", { method: "POST", body: { location: bad }, cookie }), ENV);
     assert.equal(r.status, 400, JSON.stringify(bad));
   }
+});
+
+// --- Alarmes ---------------------------------------------------------------
+test("historique des alarmes : trié, traduit, entrées vides ignorées", async () => {
+  const cookie = await loginCookie();
+  const { alarms } = await (await worker.fetch(req("/api/alarms", { cookie }), ENV)).json();
+  assert.deepEqual(alarms.map((a) => [a.code, a.date.slice(0, 10)]), [
+    ["AL04", "2026-11-18"], ["AL03", "2026-04-11"], ["AL11", "2026-02-18"], ["AL03", "2018-09-10"],
+  ]);
+  assert.equal(alarms[0].title, "Allumage raté");
+  assert.equal(alarms[0].before, "Allumage");
+  assert.equal(alarms[1].title, "Flamme éteinte (fumées trop froides)");
+  assert.equal(alarms[1].before, "Extinction en cours");
+  assert.match(alarms[2].advice, /couvercle du réservoir/);
+  assert.equal((await worker.fetch(req("/api/alarms"), ENV)).status, 401);
+});
+
+test("alarme en cours affichée en français", () => {
+  assert.deepEqual(describeStatus(51, "A03 - fine pellet / stop fiamma"), { fr: "Alarme : Flamme éteinte (fumées trop froides)", phase: "alarm" });
+  assert.deepEqual(describeStatus(50, "A04 - mancata accensione"), { fr: "Alarme : Allumage raté", phase: "alarm" });
 });
 
 // --- Boost -----------------------------------------------------------------

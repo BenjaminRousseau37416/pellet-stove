@@ -23,6 +23,8 @@ officielle, tourne **gratuitement sur Cloudflare Workers** et est protégée par
 - Consigne et veille automatique (actives en mode automatique), mode relax.
 - **Programmation hebdomadaire** : 8 tranches horaires (heures par demi-heures, jours de la semaine).
 - Remise à l'heure de l'horloge du poêle.
+- **Historique des alarmes** : les 10 dernières alarmes du poêle, avec date, signification et conseil
+  (d'après le manuel EK63, `src/alarms.js`).
 - Liste des états du poêle rencontrés (code et libellé italien → français).
 
 **Montre Wear OS**
@@ -161,7 +163,8 @@ Base : `https://8wmnu4exgg.execute-api.eu-central-1.amazonaws.com/prod`.
 | `PUT …/timer` | `{ "date": "<ISO UTC>" }` ou `{ "date": null }` | Easy timer : inverse l'état à cette date ; `null` annule |
 | `PUT …/date` | `{ "date": "AAAA-MM-JJTHH:mm:ss.000" }` | Horloge du poêle, heure locale sans fuseau |
 | `PUT …/scheduling` | `{ active, slot1 … slot8 }` | Les 9 champs à chaque fois ; tranche = `{ startTime, endTime, days }` en secondes depuis minuit (demi-heures) |
-| `GET …/alarms`, `PUT …/cochlea` | | Existent, non utilisées |
+| `GET …/alarms` | | 10 dernières alarmes (mémoire circulaire, pas triée) : `{ code: "ALARM-n", preState, preStateDescription, state, stateDescription: "A03 - fine pellet / stop fiamma", date }`, date de l'horloge du poêle |
+| `PUT …/cochlea` | | Existe, non utilisée |
 
 À savoir :
 - La passerelle valide le format des requêtes : un champ inconnu renvoie un 400 qui liste les champs attendus.

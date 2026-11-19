@@ -189,6 +189,10 @@ export default {
         return json({ ...state, boost: publicBoost(await getBoost(env)) });
       }
 
+      if (url.pathname === "/api/alarms" && request.method === "GET") {
+        return json({ alarms: await backend.getAlarms(env) });
+      }
+
       if (url.pathname === "/api/settings" && request.method === "GET") {
         return json({
           storage: !!env.KV,

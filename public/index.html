@@ -168,6 +168,11 @@
     .slot-actions { display: flex; gap: 10px; margin-top: 12px; }
     .slot-actions button { flex: 1; padding: 11px 12px; }
     .small-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .statuses li.alarm { display: block; }
+    .alarm-head { display: flex; justify-content: space-between; gap: 10px; }
+    .alarm-head strong { font-weight: 600; color: var(--text); }
+    .alarm-date { color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .alarm .row-sub { margin-top: 2px; }
     .small-btn { flex: none; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); font-weight: 600; font-size: 14px; }
     .clock-off { color: var(--danger); }
     .boost { border-top: 1px solid var(--line); margin-top: 14px; padding-top: 14px; }
@@ -375,6 +380,12 @@
           <button id="clockBtn" class="small-btn" type="button">Remettre à l'heure</button>
         </div>
       </section>
+
+      <details class="card statuses" id="alarmsCard">
+        <summary>Historique des alarmes <span class="row-sub" id="alarmsCount"></span></summary>
+        <ul id="alarmsList"></ul>
+        <div class="note">Les 10 dernières alarmes gardées par le poêle. Les dates viennent de son horloge : celles d'avant sa remise à l'heure (18 novembre 2026) peuvent être fausses.</div>
+      </details>
 
       <details class="card statuses" id="statusesCard">
         <summary>États rencontrés <span class="row-sub" id="stCount"></span></summary>
@@ -1215,6 +1226,34 @@
       renderBoost(state);
       command("boost", stopping ? 0 : boostMinutes, "boost");
     });
+
+    // --- Historique des alarmes (chargé à l'ouverture de la carte) ---------------
+    // Dates de l'horloge du poêle, sans fuseau : affichées telles quelles.
+    const fmtStoveDate = (d) => new Date(d.replace(/Z$/, "") + "Z").toLocaleString("fr-BE", {
+      timeZone: "UTC", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
+    });
+
+    async function loadAlarms() {
+      $("alarmsList").replaceChildren(el("li", { className: "note", textContent: "Chargement…" }));
+      try {
+        const { alarms } = await api("alarms");
+        $("alarmsCount").textContent = `(${alarms.length})`;
+        if (!alarms.length) {
+          $("alarmsList").replaceChildren(el("li", { className: "note", textContent: "Aucune alarme enregistrée." }));
+          return;
+        }
+        $("alarmsList").replaceChildren(...alarms.map((a) => el("li", { className: "alarm" }, [
+          el("div", { className: "alarm-head" }, [
+            el("strong", { textContent: `${a.code} · ${a.title}` }),
+            el("span", { className: "alarm-date", textContent: fmtStoveDate(a.date) }),
+          ]),
+          el("div", { className: "row-sub", textContent: `${a.before ? `Pendant : ${a.before}. ` : ""}${a.advice}` }),
+        ])));
+      } catch (e) {
+        if (e.message !== "auth") $("alarmsList").replaceChildren(el("li", { className: "note", textContent: e.message }));
+      }
+    }
+    $("alarmsCard").addEventListener("toggle", () => { if ($("alarmsCard").open) loadAlarms(); });
 
     // --- Horloge du poêle ------------------------------------------------------
     function renderClock(s) {
