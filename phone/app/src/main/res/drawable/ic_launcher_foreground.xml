@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Avant-plan de l'icône adaptative : la flamme de l'app web, centrée dans la zone sûre. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="1.6"
+        android:scaleY="1.6"
+        android:translateX="15.6"
+        android:translateY="17">
+        <path
+            android:fillColor="#FFF8F0"
+            android:pathData="M24,9C27,16 33,20 33,28A9,9 0,0 1,15 28C15,22 19,19 21,15C22,19 24,20 25,20C25,16 24,13 24,9Z" />
+        <path
+            android:fillColor="#FFC45C"
+            android:pathData="M24,22C26,25 28,27 28,30A4,4 0,0 1,20 30C20,27 22,25 24,22Z" />
+    </group>
+</vector>

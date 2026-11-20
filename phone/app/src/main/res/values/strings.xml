@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Poêle</string>
+    <string name="widget_label">Poêle</string>
+    <string name="widget_description">Température, marche/arrêt et ventilateur de la chambre</string>
+    <string name="refresh">Actualiser</string>
+    <string name="open_app">Ouvrir l\'app du poêle</string>
+</resources>

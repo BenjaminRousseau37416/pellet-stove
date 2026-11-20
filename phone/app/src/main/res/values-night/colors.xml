@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Mêmes teintes que l'app web (thème sombre). -->
+<resources>
+    <color name="widget_bg">#241D19</color>
+    <color name="widget_text">#F4ECE6</color>
+    <color name="widget_muted">#A3958B</color>
+    <color name="widget_error">#FF6B6B</color>
+    <color name="widget_neutral">#3A2F28</color>
+    <color name="widget_on_neutral">#F4ECE6</color>
+    <color name="widget_accent">#C94E0A</color>
+    <color name="widget_cool">#2A72CC</color>
+    <color name="widget_on_color">#FFFFFF</color>
+    <color name="widget_ripple">#33FFFFFF</color>
+</resources>

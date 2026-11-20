@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Flamme sur disque orange, à côté de la température du widget. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path
+        android:fillColor="#F26B1D"
+        android:pathData="M24,0a24,24 0,1 1,0 48a24,24 0,1 1,0 -48z" />
+    <path
+        android:fillColor="#FFF8F0"
+        android:pathData="M24,9C27,16 33,20 33,28A9,9 0,0 1,15 28C15,22 19,19 21,15C22,19 24,20 25,20C25,16 24,13 24,9Z" />
+    <path
+        android:fillColor="#FFC45C"
+        android:pathData="M24,22C26,25 28,27 28,30A4,4 0,0 1,20 30C20,27 22,25 24,22Z" />
+</vector>

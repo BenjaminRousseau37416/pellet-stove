@@ -1,0 +1,6 @@
+.gradle/
+.kotlin/
+build/
+local.properties
+# Adresse du Worker et clé d'accès : jamais dans git
+secrets.properties

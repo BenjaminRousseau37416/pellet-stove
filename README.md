@@ -27,8 +27,10 @@ officielle, tourne **gratuitement sur Cloudflare Workers** et est protégée par
   (d'après le manuel EK63, `src/alarms.js`).
 - Liste des états du poêle rencontrés (code et libellé italien → français).
 
-**Montre Wear OS**
-- Une tuile « Poêle » : température de la pièce, état, et un bouton Allumer / Éteindre (voir `watch/`).
+**Montre Wear OS et widget Android**
+- Une tuile « Poêle » sur la montre : température de la pièce, état, boutons Allumer / Éteindre et Chambre
+  (voir `watch/`).
+- Le même contenu en widget sur l'écran d'accueil du téléphone (voir `phone/`).
 
 **Suivi des températures**
 - Relevé de la température de la pièce toutes les 15 minutes, conservé 400 jours.
@@ -50,6 +52,7 @@ Cloud SmartEK63 (AWS Cognito + API Gateway)  ──►  poêle (module Wi-Fi)
 
 Téléphone ──► Open-Meteo (température extérieure, appelé directement par la page)
 Montre (tuile Wear OS) ──► Worker /api/watch, avec une clé dédiée (lecture de l'état + marche/arrêt)
+Widget Android         ──► Worker /api/watch, avec la même clé
 ```
 
 | Fichier | Rôle |
@@ -66,6 +69,7 @@ Montre (tuile Wear OS) ──► Worker /api/watch, avec une clé dédiée (lect
 | `scripts/make-icons.mjs` | Génère les icônes PNG |
 | `tools/` | Scripts de diagnostic lancés depuis un PC (voir plus bas) |
 | `watch/` | App Wear OS (Kotlin) : la tuile Marche/Arrêt pour la montre |
+| `phone/` | App Android (Kotlin) : le widget de l'écran d'accueil |
 
 ## Installation
 
@@ -132,6 +136,37 @@ Derrière un proxy d'entreprise : `JAVA_TOOL_OPTIONS=-Djavax.net.ssl.trustStoreT
 3. Sur le PC : `adb pair <adresse>:<port d'association> <code>`, puis `adb connect <adresse>:<port>` (le port
    affiché sur l'écran *Débogage sans fil*), puis `adb install -r watch/app/build/outputs/apk/debug/app-debug.apk`.
 4. Sur la montre : appui long sur le cadran ou balayage jusqu'à la fin des tuiles → *Ajouter une tuile* → « Poêle ».
+
+## Widget Android (`phone/`)
+
+Un widget d'écran d'accueil sur une seule ligne (4 × 1 cases, Android 12 ou plus récent) avec le même contenu
+que la tuile de la montre : température de la pièce, état, bouton **Allumer / Éteindre** (bloqué pendant
+l'allumage et l'extinction) et bouton **Chambre** (bleu en marche, gris à l'arrêt). Toucher l'heure de mise à
+jour actualise, toucher la température ouvre l'app web ; l'icône « Poêle » de l'app aussi.
+
+**Économie d'énergie** : dans ce mode, Android coupe Internet aux apps en arrière-plan et le widget resterait
+sur « Chargement… ». Tant que l'app n'est pas autorisée, le bas du widget le signale ; le toucher ouvre la
+demande d'Android (équivalent de *Paramètres → Applications → Poêle → Batterie → Non restreinte*).
+
+- Il utilise les routes `/api/watch` avec la **même clé** que la montre (`phone/secrets.properties`, même
+  format que pour la montre, et `phone/local.properties`, tous deux ignorés par git).
+- L'état est relu toutes les 15 minutes (le minimum d'Android, via WorkManager), et toutes les 90 secondes
+  pendant un allumage, une extinction ou un nettoyage.
+- Le bouton envoie ce qu'il affiche (« Allumer » allume, « Éteindre » éteint), même si l'état affiché date un peu.
+- Une commande qui n'a pas pu partir dans les 2 minutes (pas de réseau) est abandonnée, pour ne pas allumer
+  le poêle longtemps après.
+- Clair ou sombre selon le thème du téléphone, avec les couleurs de l'app web.
+
+**Compilation** : comme pour la montre, dans `phone/` (`./gradlew assembleDebug`).
+
+**Installation** (PC et téléphone sur le même Wi-Fi) :
+1. Sur le téléphone : *Paramètres → À propos du téléphone → Informations sur le logiciel*, toucher 7 fois
+   *Numéro de version* ; puis *Options de développement* → activer *Débogage sans fil*.
+2. *Débogage sans fil → Associer l'appareil avec un code d'association*, puis sur le PC :
+   `adb pair <adresse>:<port>` et taper le code. Le téléphone se reconnecte ensuite tout seul.
+3. `adb install -r phone/app/build/outputs/apk/debug/app-debug.apk`.
+4. Appui long sur l'écran d'accueil → *Widgets* → « Poêle », puis toucher le bas du widget pour autoriser
+   l'arrière-plan.
 
 ## Développement
 
